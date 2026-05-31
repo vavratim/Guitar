@@ -22,14 +22,18 @@ html,body{width:100%;height:100%;background:#1a1a1a;color:#eee;font-family:-appl
 select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;padding:4px 6px;font-size:13px;height:32px}
 
 /* Shape toggles */
-.togs{display:flex;gap:4px;margin-bottom:5px}
-.tog{flex:1;padding:5px 2px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;border:2px solid;border-radius:5px;user-select:none;max-width:52px}
+.togs{display:flex;gap:4px;align-items:center}
+.tog{padding:5px 10px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;border:2px solid;border-radius:5px;user-select:none;min-width:44px}
 .tog.off{opacity:.2}
+.tog-all{padding:5px 8px;cursor:pointer;font-size:11px;font-weight:600;border:1.5px solid #555;border-radius:5px;background:#2a2a2a;color:#aaa;white-space:nowrap;height:32px}
+.tog-all:hover{border-color:#888;color:#eee}
 
 /* Chord row */
 .chord-row{display:flex;gap:5px;align-items:flex-end;flex-wrap:wrap;margin-bottom:5px;padding:5px 0 5px;border-top:1px solid #333}
 .chord-lbl{font-size:10px;color:#888;font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 .chord-name-display{font-size:13px;color:#f0c050;font-weight:600;margin-left:4px;align-self:center}
+.btn-clear{padding:5px 10px;cursor:pointer;font-size:12px;font-weight:600;border:1.5px solid #555;border-radius:5px;background:#2a2a2a;color:#aaa;align-self:flex-end;height:32px}
+.btn-clear:hover{border-color:#c05050;color:#e07070}
 
 /* Canvas */
 .fb-wrap{flex:1;overflow:hidden;position:relative}
@@ -74,7 +78,11 @@ canvas{display:block;width:100%;height:100%}
         <option value="9">9</option><option value="10">10</option>
       </select>
     </div>
-    <div class="togs" id="togs" style="align-self:flex-end"></div>
+    <div style="display:flex;gap:4px;align-items:flex-end">
+      <div class="togs" id="togs"></div>
+      <button class="tog-all" id="togScale" onclick="toggleScale()" style="border-color:#666;color:#ccc">Scale</button>
+      <button class="tog-all" id="togAll" onclick="toggleAll()">All On</button>
+    </div>
   </div>
 
   <!-- Chord lookup -->
@@ -113,6 +121,7 @@ canvas{display:block;width:100%;height:100%}
       </select>
     </div>
     <span class="chord-name-display" id="chordNameDisplay"></span>
+    <button class="btn-clear" onclick="clearChord()">✕ Clear</button>
   </div>
 
   <!-- Fretboard canvas -->
@@ -329,6 +338,7 @@ function chordKey(root, acc, type){
 }
 
 function getChord(){
+  if(chordCleared) return {key:'', frets:null};
   const root=document.getElementById('cr').value;
   const acc =document.getElementById('ca').value;
   const type=document.getElementById('ct').value;
@@ -507,6 +517,48 @@ function draw(){
     ctx.fillText(nm,cx,cy+.5);
   });
 
+  // ── Scale note overlay ──
+  if(showScale){
+    const MAJOR_SCALE=[0,2,4,5,7,9,11];
+    const scaleNoteMap=new Map();
+    // For each shape instance that's visible, for each string, find major scale notes
+    // in the fret range of that shape instance that are NOT already in noteMap
+    SHAPE_ORDER.forEach(sh=>{
+      if(!vis[sh]) return;
+      instances[sh].forEach(shift=>{
+        const def=C_SHAPES[sh];
+        // Get fret range for this instance
+        const instVfrets=def.notes.map(([,f])=>f+shift-capo).filter(v=>v>=0&&v<=SHOW);
+        if(!instVfrets.length) return;
+        const minVf=Math.min(...instVfrets);
+        const maxVf=Math.max(...instVfrets);
+        for(let si=0;si<6;si++){
+          for(let vf=minVf;vf<=maxVf;vf++){
+            const k=`${si},${vf}`;
+            if(noteMap.has(k)) continue; // already drawn as CAGED note
+            if(scaleNoteMap.has(k)) continue; // already queued
+            const absFret=vf+capo;
+            const note=(SOPEN[si]+absFret+1200)%12;
+            const interval=(note-R+12)%12;
+            if(!MAJOR_SCALE.includes(interval)) continue;
+            scaleNoteMap.set(k,{si,vf});
+          }
+        }
+      });
+    });
+    const SDR=Math.max(Math.floor(DR*0.55),4);
+    scaleNoteMap.forEach(({si,vf})=>{
+      const row=strRow(si);
+      const cx=dotX(vf), cy=dotY(row);
+      ctx.beginPath(); ctx.arc(cx,cy,SDR,0,Math.PI*2);
+      ctx.fillStyle='rgba(0,0,0,0.75)';
+      ctx.fill();
+      ctx.strokeStyle='rgba(180,180,180,0.5)';
+      ctx.lineWidth=1;
+      ctx.stroke();
+    });
+  }
+
   // ── Chord overlay ──
   const chord=getChord();
   updateChordDisplay(chord.key, chord.frets);
@@ -563,6 +615,32 @@ function updateChordDisplay(key, frets){
   el.style.color=frets?'#f0c050':'#c05050';
 }
 
+let chordCleared = false;
+let showScale = false;
+
+function toggleScale(){
+  showScale = !showScale;
+  const btn = document.getElementById('togScale');
+  btn.style.borderColor = showScale ? '#aaa' : '#666';
+  btn.style.color = showScale ? '#eee' : '#ccc';
+  btn.style.background = showScale ? '#3a3a3a' : '#2a2a2a';
+  draw();
+}
+
+function toggleAll(){
+  const allOn = Object.values(vis).every(v=>v);
+  SHAPE_ORDER.forEach(s=>{ vis[s] = !allOn; });
+  document.getElementById('togAll').textContent = allOn ? 'All On' : 'All Off';
+  renderToggles();
+  draw();
+}
+
+function clearChord(){
+  chordCleared = true;
+  document.getElementById('chordNameDisplay').textContent = '';
+  draw();
+}
+
 function renderToggles(){
   const el=document.getElementById('togs');
   el.innerHTML='';
@@ -576,14 +654,19 @@ function renderToggles(){
     d.addEventListener('click',()=>{vis[s]=!vis[s];renderToggles();draw()});
     el.appendChild(d);
   });
+  // Sync all-toggle label
+  const allOn = Object.values(vis).every(v=>v);
+  const allOff = Object.values(vis).every(v=>!v);
+  const btn = document.getElementById('togAll');
+  if(btn) btn.textContent = allOff ? 'All On' : 'All Off';
 }
 
 function all(){renderToggles();draw();}
 document.getElementById('ks').addEventListener('change',all);
 document.getElementById('cap').addEventListener('change',all);
-document.getElementById('cr').addEventListener('change',all);
-document.getElementById('ca').addEventListener('change',all);
-document.getElementById('ct').addEventListener('change',all);
+document.getElementById('cr').addEventListener('change',()=>{chordCleared=false;all();});
+document.getElementById('ca').addEventListener('change',()=>{chordCleared=false;all();});
+document.getElementById('ct').addEventListener('change',()=>{chordCleared=false;all();});
 window.addEventListener('resize',draw);
 all();
 </script>
