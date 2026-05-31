@@ -27,6 +27,8 @@ select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;pad
 .tog.off{opacity:.2}
 .tog-all{padding:5px 8px;cursor:pointer;font-size:11px;font-weight:600;border:1.5px solid #555;border-radius:5px;background:#2a2a2a;color:#aaa;white-space:nowrap;height:32px}
 .tog-all:hover{border-color:#888;color:#eee}
+.tog-majmin{padding:5px 10px;cursor:pointer;font-size:12px;font-weight:700;border:2px solid #c8a020;border-radius:5px;background:#3a2e08;color:#f0c030;white-space:nowrap;height:32px;letter-spacing:.02em}
+.tog-majmin:hover{filter:brightness(1.15)}
 
 /* Chord row */
 .chord-row{display:flex;gap:5px;align-items:flex-end;flex-wrap:wrap;margin-bottom:5px;padding:5px 0 5px;border-top:1px solid #333}
@@ -79,6 +81,7 @@ canvas{display:block;width:100%;height:100%}
       </select>
     </div>
     <div style="display:flex;gap:4px;align-items:flex-end">
+      <button class="tog-majmin" id="togMajMin" onclick="toggleMajMin()">Major</button>
       <div class="togs" id="togs"></div>
       <button class="tog-all" id="togScale" onclick="toggleScale()" style="border-color:#666;color:#ccc">Scale</button>
       <button class="tog-all" id="togAll" onclick="toggleAll()">All On</button>
@@ -604,6 +607,16 @@ function draw(){
   const capo=+document.getElementById('cap').value;
   const R=ni(EN[key]||key);
   const useFlats=FLAT_KEYS.has(key);
+  // For minor mode, the "effective root" for coloring shifts 3 semitones down
+  // Minor pentatonic: root(0), b3(3), 4th(5), 5th(7), b7(10)
+  const MINOR_PENTA=[0,3,5,7,10];
+  const MAJOR_PENTA=[0,2,4,7,9];
+  const effectiveR = R; // always use selected key as root; shapeShift handles position
+  const pentaIntervals = isMajor ? MAJOR_PENTA : MINOR_PENTA;
+  // Chord tone intervals (for coloring root/3rd/5th)
+  const INT_ROOT = 0;
+  const INT_3RD  = isMajor ? 4 : 3;  // maj3 or min3
+  const INT_5TH  = 7;                  // perfect 5th same in both
 
   const cv=document.getElementById('cv');
   const wrap=cv.parentElement;
@@ -628,7 +641,10 @@ function draw(){
   const mutedCol='#666';
   const textCol='#eee';
 
-  const instances=getInstances(R,capo,SHOW);
+  // Shape positions: major anchors to R, minor anchors 3 semitones higher
+  // (minor penta of R = major penta of R+3)
+  const shapeShift = isMajor ? R : (R+3);
+  const instances=getInstances(shapeShift,capo,SHOW);
 
   function dotX(vf){ return vf===0 ? lW-DR-1 : lW+(vf-0.5)*fw; }
   function dotY(row){ return topPad+row*rowH+rowH/2; }
@@ -731,8 +747,8 @@ function draw(){
 
   noteMap.forEach(({si,vf,shapes})=>{
     const note=(SOPEN[si]+vf+capo+1200)%12;
-    const interval=(note-R+12)%12;
-    const isRoot=interval===0, is3rd=interval===4, is5th=interval===7;
+    const interval=(note-effectiveR+12)%12;
+    const isRoot=interval===INT_ROOT, is3rd=interval===INT_3RD, is5th=interval===INT_5TH;
     const row=strRow(si);
     const cx=dotX(vf), cy=dotY(row);
     const sh=shapes[0];
@@ -756,7 +772,9 @@ function draw(){
 
   // ── Scale note overlay ──
   if(showScale){
-    const MAJOR_SCALE=[0,2,4,5,7,9,11];
+    const MAJOR_SCALE = isMajor
+      ? [0,2,4,5,7,9,11]       // major scale
+      : [0,2,3,5,7,8,10];      // natural minor scale
     const scaleNoteMap=new Map();
     // For each shape instance that's visible, for each string, find major scale notes
     // in the fret range of that shape instance that are NOT already in noteMap
@@ -776,7 +794,7 @@ function draw(){
             if(scaleNoteMap.has(k)) continue; // already queued
             const absFret=vf+capo;
             const note=(SOPEN[si]+absFret+1200)%12;
-            const interval=(note-R+12)%12;
+            const interval=(note-effectiveR+12)%12;
             if(!MAJOR_SCALE.includes(interval)) continue;
             scaleNoteMap.set(k,{si,vf});
           }
@@ -855,6 +873,24 @@ function updateChordDisplay(key, frets){
 }
 
 let chordCleared = false;
+let isMajor = true; // true=major pentatonic, false=minor pentatonic
+
+function toggleMajMin(){
+  isMajor = !isMajor;
+  const btn = document.getElementById('togMajMin');
+  if(isMajor){
+    btn.textContent = 'Major';
+    btn.style.borderColor = '#c8a020';
+    btn.style.background  = '#3a2e08';
+    btn.style.color       = '#f0c030';
+  } else {
+    btn.textContent = 'Minor';
+    btn.style.borderColor = '#6060c8';
+    btn.style.background  = '#18183a';
+    btn.style.color       = '#9090f0';
+  }
+  draw();
+}
 let showScale = false;
 
 function toggleScale(){
@@ -877,6 +913,13 @@ function toggleAll(){
 function clearChord(){
   chordCleared = true;
   document.getElementById('chordNameDisplay').textContent = '';
+  // Gray out chord dropdowns
+  ['cr','ca','ct'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.style.color='#444';
+    el.style.background='#1a1a1a';
+    el.style.borderColor='#333';
+  });
   draw();
 }
 
@@ -900,13 +943,61 @@ function renderToggles(){
   if(btn) btn.textContent = allOff ? 'All On' : 'All Off';
 }
 
+function getAvailableSlashBassNotes(root, acc){
+  let note = root + acc;
+  const norm = {'A#':'Bb','C#':'Db','D#':'Eb','G#':'Ab','F#':'F#'};
+  if(norm[note]) note=norm[note];
+  // Find all CHORDS keys that start with this note and have '/'
+  const available=new Set();
+  Object.keys(CHORDS).forEach(k=>{
+    // key format: e.g. 'Gmaj/B', 'Am/E'
+    if(!k.includes('/')) return;
+    const parts=k.split('/');
+    const chordRoot=parts[0]; // e.g. 'Gmaj' or 'Am'
+    // Check if this chord's root matches our note
+    const chordNote=chordRoot.replace(/(maj|m7|m6|m9|m|7|6|9|sus\d?|add9|dim|\+|5)/,'');
+    if(chordNote===note){
+      available.add('/'+parts[1]);
+    }
+  });
+  return available;
+}
+
+function updateSlashOptions(){
+  const root=document.getElementById('cr').value;
+  const acc =document.getElementById('ca').value;
+  const available=getAvailableSlashBassNotes(root,acc);
+  const ct=document.getElementById('ct');
+  const opts=[...ct.options];
+  opts.forEach(opt=>{
+    if(!opt.value.startsWith('/')) return;
+    const inLib=available.has(opt.value);
+    opt.disabled=!inLib;
+    opt.style.color=inLib?'':'#333';
+  });
+  // If current selection is a disabled slash chord, reset to maj
+  if(ct.value.startsWith('/') && !available.has(ct.value)){
+    ct.value='maj';
+  }
+}
+
 function all(){renderToggles();draw();}
 document.getElementById('ks').addEventListener('change',all);
 document.getElementById('cap').addEventListener('change',all);
-document.getElementById('cr').addEventListener('change',()=>{chordCleared=false;all();});
-document.getElementById('ca').addEventListener('change',()=>{chordCleared=false;all();});
-document.getElementById('ct').addEventListener('change',()=>{chordCleared=false;all();});
+function activateChordDropdowns(){
+  chordCleared=false;
+  ['cr','ca','ct'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.style.color='#eee';
+    el.style.background='#2a2a2a';
+    el.style.borderColor='#444';
+  });
+}
+document.getElementById('cr').addEventListener('change',()=>{activateChordDropdowns();updateSlashOptions();all();});
+document.getElementById('ca').addEventListener('change',()=>{activateChordDropdowns();updateSlashOptions();all();});
+document.getElementById('ct').addEventListener('change',()=>{activateChordDropdowns();all();});
 window.addEventListener('resize',draw);
+updateSlashOptions();
 all();
 </script>
 </body>
