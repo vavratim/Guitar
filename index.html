@@ -49,7 +49,7 @@ canvas{display:block;width:100%;height:100%}
 </head>
 <body>
 <div class="app">
-  <div style="position:fixed;top:4px;right:6px;font-size:9px;color:#444;z-index:999;pointer-events:none;font-family:monospace">v1.4</div>
+  <div style="position:fixed;top:4px;right:6px;font-size:9px;color:#444;z-index:999;pointer-events:none;font-family:monospace">v1.6</div>
 
   <!-- CAGED Key + Capo + Toggles -->
   <div class="ctrl-row">
@@ -173,24 +173,51 @@ canvas{display:block;width:100%;height:100%}
 
 <script>
 // ── Wake Lock (keep screen on while app is open) ──────────────────────────
+// Strategy 1: Wake Lock API (works on HTTPS / GitHub Pages)
 let wakeLock = null;
 async function requestWakeLock(){
   try {
     if('wakeLock' in navigator){
       wakeLock = await navigator.wakeLock.request('screen');
       wakeLock.addEventListener('release', ()=>{ wakeLock=null; });
+      return true;
     }
-  } catch(e){ /* silently fail if not supported */ }
+  } catch(e){}
+  return false;
 }
 async function releaseWakeLock(){
-  if(wakeLock){ await wakeLock.release(); wakeLock=null; }
+  try{ if(wakeLock){ await wakeLock.release(); wakeLock=null; } }catch(e){}
 }
-// Request wake lock when page becomes visible, release when hidden
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible') requestWakeLock();
+
+// Strategy 2: Silent video loop fallback (works on iOS Safari file:// and http)
+// A 1x1 pixel transparent MP4 encoded as base64 — just enough to keep screen alive
+(function(){
+  const vid = document.createElement('video');
+  vid.setAttribute('playsinline','');
+  vid.setAttribute('muted','');
+  vid.setAttribute('loop','');
+  vid.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:0;left:0;z-index:-1';
+  // Minimal valid MP4 (1x1 transparent, 1 frame) as base64
+  const mp4b64 = 'AAAAIGZ0eXBpc29tAAACAGlzb21pc28ybXA0MQAAAAhmcmVlAAAAG21kYXQAAAGzABAHAAABthADAowdbb9/AAAC6W1vb3YAAABsbXZoZAAAAAB8JbCAfCWwgAAAA+gAAAAAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAIVdHJhawAAAFx0a2hkAAAAD3wlsIB8JbCAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAABAAAAASAAAAAAACRlZHRzAAAAHGVsc3QAAAAAAAAAAQAAAAAAAQAAAAAAAQABgAAAB';
+  const src = document.createElement('source');
+  src.src = 'data:video/mp4;base64,' + mp4b64;
+  src.type = 'video/mp4';
+  vid.appendChild(src);
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.body.appendChild(vid);
+    const tryPlay = ()=>{ vid.play().catch(()=>{}); };
+    // Must be triggered by user interaction on iOS
+    document.addEventListener('touchstart', tryPlay, {once:true});
+    document.addEventListener('click', tryPlay, {once:true});
+  });
+})();
+
+// Combine both strategies
+document.addEventListener('visibilitychange', async ()=>{
+  if(document.visibilityState==='visible') await requestWakeLock();
   else releaseWakeLock();
 });
-requestWakeLock(); // request immediately on load
+requestWakeLock();
 
 // ── Theory ──────────────────────────────────────────────────────────────────
 const CHR=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -550,16 +577,16 @@ function chordKey(root, acc, type){
   if(type.startsWith('/')){
     const slashMaj = note + 'maj' + type;
     const slashMin = note + 'm' + type;
-    if(CHORDS[slashMaj]) return slashMaj;
-    if(CHORDS[slashMin]) return slashMin;
+    if(CHORD_VOICINGS[slashMaj]) return slashMaj;
+    if(CHORD_VOICINGS[slashMin]) return slashMin;
     return slashMaj;
   }
   const suffix = type==='maj'?'maj':type;
   const key1 = note + suffix;
-  if(CHORDS[key1]) return key1;
+  if(CHORD_VOICINGS[key1]) return key1;
   if(type==='sus4'){
     const key2 = note + 'sus';
-    if(CHORDS[key2]) return key2;
+    if(CHORD_VOICINGS[key2]) return key2;
   }
   return key1;
 }
@@ -1004,12 +1031,12 @@ function getAvailableSlashBassNotes(root, acc){
   if(norm[note]) note=norm[note];
   // Find all CHORDS keys that start with this note and have '/'
   const available=new Set();
-  Object.keys(CHORDS).forEach(k=>{
+  Object.keys(CHORD_VOICINGS).forEach(k=>{
     if(!k.includes('/')) return;
     const parts=k.split('/');
     const chordRoot=parts[0]; // e.g. 'Gmaj' or 'Am'
     // Strip chord type suffix to get the root note
-    const chordNote=chordRoot.replace(/(maj7|maj9|maj|m7|m6|m9|m|7|6|9|sus4|sus2|sus|add9|dim|\+|5)/,'');
+    const chordNote=chordRoot.replace(/(maj7|maj9|maj|m7|m6|m9|m|7|6|9|sus4|sus2|sus|add9|dim|\+|5)/g,'');
     if(chordNote===note){
       available.add('/'+parts[1]);
     }
@@ -1021,16 +1048,34 @@ function updateSlashOptions(){
   const root=document.getElementById('cr').value;
   const available=getAvailableSlashBassNotes(root,'');
   const ct=document.getElementById('ct');
-  const opts=[...ct.options];
-  opts.forEach(opt=>{
-    if(!opt.value.startsWith('/')) return;
-    const inLib=available.has(opt.value);
-    opt.disabled=!inLib;
-    opt.style.color=inLib?'':'#333';
-  });
-  // If current selection is a disabled slash chord, reset to maj
-  if(ct.value.startsWith('/') && !available.has(ct.value)){
+  const curVal=ct.value;
+
+  // Remove existing slash optgroup and rebuild with only available options
+  const existingGroup=ct.querySelector('optgroup');
+  if(existingGroup) existingGroup.remove();
+
+  if(available.size>0){
+    const grp=document.createElement('optgroup');
+    grp.label='── Slash chords ──';
+    // Musical order
+    const order=['A','Bb','B','C','C#','D','D#','Eb','E','F','F#','G','Ab','G#'];
+    const dispMap={'C#':'C♯','D#':'D♯','F#':'F♯','G#':'G♯','Ab':'A♭','Bb':'B♭','Eb':'E♭'};
+    order.forEach(note=>{
+      const val='/'+note;
+      if(!available.has(val)) return;
+      const opt=document.createElement('option');
+      opt.value=val;
+      opt.textContent='/ '+(dispMap[note]||note)+' bass';
+      grp.appendChild(opt);
+    });
+    ct.appendChild(grp);
+  }
+
+  // Restore selection if still valid, else reset to maj
+  if(curVal.startsWith('/') && !available.has(curVal)){
     ct.value='maj';
+  } else {
+    ct.value=curVal;
   }
 }
 
