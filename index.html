@@ -93,18 +93,18 @@ canvas{display:block;width:100%;height:100%}
     <div class="ctrl">
       <span class="chord-lbl">Root</span>
       <select id="cr">
-        <option value="A">A</option><option value="B">B</option>
-        <option value="C">C</option><option value="D">D</option>
-        <option value="E">E</option><option value="F">F</option>
+        <option value="C">C</option>
+        <option value="C#">C♯ / D♭</option>
+        <option value="D">D</option>
+        <option value="D#">D♯ / E♭</option>
+        <option value="E">E</option>
+        <option value="F">F</option>
+        <option value="F#">F♯ / G♭</option>
         <option value="G">G</option>
-      </select>
-    </div>
-    <div class="ctrl">
-      <span class="chord-lbl">Accidental</span>
-      <select id="ca">
-        <option value="">♮ Natural</option>
-        <option value="b">♭ Flat</option>
-        <option value="#">♯ Sharp</option>
+        <option value="G#">G♯ / A♭</option>
+        <option value="A">A</option>
+        <option value="A#">A♯ / B♭</option>
+        <option value="B">B</option>
       </select>
     </div>
     <div class="ctrl">
@@ -143,6 +143,12 @@ canvas{display:block;width:100%;height:100%}
         <option value="/A">/ A bass</option>
         <option value="/Ab">/A♭ bass</option>
         </optgroup>
+      </select>
+    </div>
+    <div class="ctrl">
+      <span class="chord-lbl">Voicing</span>
+      <select id="voicing">
+        <option value="0">1st</option>
       </select>
     </div>
     <span class="chord-name-display" id="chordNameDisplay"></span>
@@ -192,373 +198,334 @@ let vis={C:true,A:true,G:true,E:true,D:true};
 // ── Chord library ───────────────────────────────────────────────────────────
 // Format: [lowE, A, D, G, B, hiE]  null=muted, 0=open, n=fret
 // Built from the Common Guitar Chords chart
-const CHORDS = {
-  // ── A ──
-  'Amaj': [null,0,2,2,2,0],
-  'Am':   [null,0,2,2,1,0],
-  'A6':   [null,0,2,2,2,2],
-  'A7':   [null,0,2,0,2,0],
-  'A9':   [null,0,2,4,2,3], // barre-style
-  'Am6':  [null,0,2,2,1,2],
-  'Am7':  [null,0,2,0,1,0],
-  'Amaj7':[null,0,2,1,2,0],
-  'Adim': [null,0,1,2,1,null],
-  'A+':   [null,0,3,2,2,1],
-  'Asus': [null,0,2,2,3,0],
+const CHORD_VOICINGS = {
 
   // ── Ab / G# ──
-  'Abmaj':[4,null,1,1,1,4],   // barre 4
-  'Abm':  [4,null,6,8,7,null], // simplify to open-ish
-  'Ab6':  [null,null,1,1,1,1],
-  'Ab7':  [4,null,4,5,4,4],
-  'Ab9':  [null,3,1,1,1,2],
-  'Abm6': [null,null,1,1,0,1],
-  'Abm7': [4,null,4,4,4,4],
-  'Abmaj7':[null,null,1,1,1,0],
-  'Abdim':[null,null,0,1,0,1],
-  'Ab+':  [null,null,1,0,0,null],
-  'Absus': [4,4,6,6,4,4],
+  'Abmaj': [{l:'Barre 4',f:[4,null,6,5,4,4]},{l:'Alt',f:[null,null,6,5,4,4]}],
+  'Abm':   [{l:'Barre 4',f:[4,null,6,4,4,4]},{l:'Alt',f:[null,null,6,4,4,4]}],
+  'Ab6':   [{l:'Open',f:[null,null,1,1,1,1]},{l:'Alt',f:[4,null,3,4,4,4]}],
+  'Ab7':   [{l:'Barre 4',f:[4,null,4,5,4,4]},{l:'Alt',f:[null,null,1,1,0,1]}],
+  'Ab9':   [{l:'Open',f:[null,3,1,1,1,2]}],
+  'Abm6':  [{l:'Open',f:[null,null,1,1,0,1]}],
+  'Abm7':  [{l:'Barre 4',f:[4,null,4,4,4,4]},{l:'Alt',f:[null,null,1,1,0,1]}],
+  'Abmaj7':[{l:'Open',f:[null,null,1,1,1,0]},{l:'Alt',f:[4,null,5,5,4,4]}],
+  'Abdim': [{l:'Open',f:[null,null,0,1,0,1]}],
+  'Ab+':   [{l:'Open',f:[null,null,2,1,1,0]}],
+  'Absus4':[{l:'Barre 4',f:[4,4,6,6,4,4]}],
+  'Absus2':[{l:'Barre 4',f:[4,4,6,6,4,4]}],
+  'Abadd9':[{l:'Open',f:[null,null,1,3,1,1]}],
+  'Ab7sus4':[{l:'Barre 4',f:[4,4,4,5,4,4]}],
+  'Ab5':   [{l:'Barre 4',f:[4,null,6,6,null,null]}],
+  'Abmaj9':[{l:'Open',f:[null,null,1,3,3,3]}],
+  'Abm9':  [{l:'Open',f:[null,null,1,1,0,1]}],
+
+  // ── A ──
+  'Amaj':  [{l:'Open',f:[null,0,2,2,2,0]},{l:'Barre 5',f:[5,7,7,6,5,5]},{l:'Alt',f:[null,null,2,2,2,2]}],
+  'Am':    [{l:'Open',f:[null,0,2,2,1,0]},{l:'Barre 5',f:[5,7,7,5,5,5]}],
+  'A6':    [{l:'Open',f:[null,0,2,2,2,2]},{l:'Alt',f:[null,0,4,4,2,2]}],
+  'A7':    [{l:'Open',f:[null,0,2,0,2,0]},{l:'Alt',f:[null,0,2,2,2,3]}],
+  'A9':    [{l:'Open',f:[null,0,2,4,2,3]},{l:'Alt',f:[null,0,2,2,0,0]}],
+  'Am6':   [{l:'Open',f:[null,0,2,2,1,2]}],
+  'Am7':   [{l:'Open',f:[null,0,2,0,1,0]},{l:'Alt',f:[null,0,2,2,1,3]}],
+  'Amaj7': [{l:'Open',f:[null,0,2,1,2,0]},{l:'Alt',f:[null,0,2,2,2,4]}],
+  'Adim':  [{l:'Open',f:[null,0,1,2,1,null]},{l:'Alt',f:[null,null,1,2,1,2]}],
+  'A+':    [{l:'Open',f:[null,0,3,2,2,1]}],
+  'Asus4': [{l:'Open',f:[null,0,2,2,3,0]},{l:'Alt',f:[null,0,0,2,3,0]}],
+  'Asus2': [{l:'Open',f:[null,0,2,2,0,0]},{l:'Alt',f:[null,0,2,4,0,0]}],
+  'Aadd9': [{l:'Open',f:[null,0,2,4,2,0]},{l:'Alt',f:[null,0,2,2,2,2]}],
+  'A7sus4':[{l:'Open',f:[null,0,2,0,3,0]},{l:'Alt',f:[null,0,0,0,3,0]}],
+  'A5':    [{l:'Open',f:[null,0,2,2,null,null]},{l:'Alt',f:[5,7,7,null,null,null]}],
+  'Amaj9': [{l:'Open',f:[null,0,2,1,2,0]},{l:'Alt',f:[null,0,2,1,0,0]}],
+  'Am9':   [{l:'Open',f:[null,0,2,0,1,0]},{l:'Alt',f:[null,0,0,0,1,0]}],
 
   // ── Bb ──
-  'Bbmaj':[null,1,3,3,3,1],
-  'Bbm':  [null,1,3,3,2,1],
-  'Bb6':  [null,1,0,0,3,1],
-  'Bb7':  [null,1,3,1,3,1],
-  'Bb9':  [null,1,0,1,1,3],
-  'Bbm6': [null,1,3,3,2,3],
-  'Bbm7': [null,1,3,1,2,1],
-  'Bbmaj7':[null,1,3,2,3,null],
-  'Bbdim':[null,1,2,3,2,null],
-  'Bb+':  [null,1,0,3,3,null],
-  'Bbsus':[null,1,3,3,4,1],
+  'Bbmaj': [{l:'Barre 1',f:[null,1,3,3,3,1]},{l:'Alt',f:[null,1,3,3,3,null]},{l:'High',f:[null,null,3,3,3,3]}],
+  'Bbm':   [{l:'Barre 1',f:[null,1,3,3,2,1]},{l:'Alt',f:[null,null,3,3,2,1]}],
+  'Bb6':   [{l:'Open',f:[null,1,3,3,3,3]},{l:'Alt',f:[null,1,0,0,3,1]}],
+  'Bb7':   [{l:'Barre 1',f:[null,1,3,1,3,1]},{l:'Alt',f:[null,1,0,1,3,1]}],
+  'Bb9':   [{l:'Open',f:[null,1,0,1,1,3]},{l:'Alt',f:[null,1,3,1,3,3]}],
+  'Bbm6':  [{l:'Open',f:[null,1,3,1,2,null]},{l:'Alt',f:[null,1,3,3,2,3]}],
+  'Bbm7':  [{l:'Barre 1',f:[null,1,3,1,2,1]},{l:'Alt',f:[null,null,3,3,2,4]}],
+  'Bbmaj7':[{l:'Barre 1',f:[null,1,3,2,3,null]},{l:'Alt',f:[null,1,3,2,3,1]}],
+  'Bbdim': [{l:'Open',f:[null,1,2,3,2,null]},{l:'Alt',f:[null,null,2,3,2,3]}],
+  'Bb+':   [{l:'Open',f:[null,1,4,3,3,null]},{l:'Alt',f:[null,1,0,3,3,null]}],
+  'Bbsus4':[{l:'Barre 1',f:[null,1,3,3,4,1]},{l:'Alt',f:[null,1,1,3,4,null]}],
+  'Bbsus2':[{l:'Barre 1',f:[null,1,3,3,1,1]},{l:'Alt',f:[null,null,3,0,1,1]}],
+  'Bbadd9':[{l:'Barre 1',f:[null,1,3,3,3,3]},{l:'Alt',f:[null,1,0,0,3,1]}],
+  'Bb7sus4':[{l:'Barre 1',f:[null,1,3,1,4,1]}],
+  'Bb5':   [{l:'Barre 1',f:[null,1,3,3,null,null]}],
+  'Bbmaj9':[{l:'Open',f:[null,1,3,2,3,3]}],
+  'Bbm9':  [{l:'Open',f:[null,1,3,1,2,3]}],
 
   // ── B ──
-  'Bmaj': [null,2,4,4,4,2],
-  'Bm':   [null,2,4,4,3,2],
-  'B6':   [null,2,1,1,0,2],
-  'B7':   [null,2,1,2,0,2],
-  'B9':   [null,2,1,2,2,4],
-  'Bm6':  [null,2,4,4,3,4],
-  'Bm7':  [null,2,0,2,0,2],
-  'Bmaj7':[null,2,4,3,4,null],
-  'Bdim': [null,2,3,4,3,null],
-  'B+':   [null,2,1,0,0,null],
-  'Bsus': [null,2,4,4,5,2],
+  'Bmaj':  [{l:'Barre 2',f:[null,2,4,4,4,2]},{l:'Alt',f:[null,null,4,4,4,2]},{l:'Open',f:[null,2,4,4,4,null]}],
+  'Bm':    [{l:'Barre 2',f:[null,2,4,4,3,2]},{l:'Open',f:[null,null,4,4,3,2]},{l:'Alt',f:[2,2,4,4,3,2]}],
+  'B6':    [{l:'Open',f:[null,2,4,4,4,4]},{l:'Alt',f:[null,2,1,1,0,2]}],
+  'B7':    [{l:'Open',f:[null,2,1,2,0,2]},{l:'Alt',f:[null,2,4,2,4,2]}],
+  'B9':    [{l:'Open',f:[null,2,1,2,0,4]},{l:'Alt',f:[null,2,4,2,4,4]}],
+  'Bm6':   [{l:'Barre 2',f:[null,2,4,4,3,4]},{l:'Alt',f:[null,2,4,1,3,null]}],
+  'Bm7':   [{l:'Barre 2',f:[null,2,4,2,3,2]},{l:'Open',f:[null,2,0,2,0,2]},{l:'Alt',f:[2,2,4,2,3,2]}],
+  'Bmaj7': [{l:'Barre 2',f:[null,2,4,3,4,2]},{l:'Alt',f:[null,2,4,3,4,null]}],
+  'Bdim':  [{l:'Open',f:[null,2,3,4,3,null]},{l:'Alt',f:[null,null,3,4,3,4]}],
+  'B+':    [{l:'Open',f:[null,2,1,0,0,null]},{l:'Alt',f:[null,2,5,4,4,null]}],
+  'Bsus4': [{l:'Barre 2',f:[null,2,4,4,5,2]},{l:'Alt',f:[null,2,2,4,5,null]}],
+  'Bsus2': [{l:'Barre 2',f:[null,2,4,4,2,2]},{l:'Alt',f:[null,2,4,1,2,2]}],
+  'Badd9': [{l:'Barre 2',f:[null,2,4,4,4,4]},{l:'Alt',f:[null,2,4,3,4,2]}],
+  'B7sus4':[{l:'Barre 2',f:[null,2,4,2,5,2]},{l:'Alt',f:[null,2,2,2,5,2]}],
+  'B5':    [{l:'Barre 2',f:[null,2,4,4,null,null]}],
+  'Bmaj9': [{l:'Open',f:[null,2,4,3,4,4]}],
+  'Bm9':   [{l:'Barre 2',f:[null,2,4,2,3,4]},{l:'Open',f:[null,2,0,2,0,2]}],
 
   // ── C ──
-  'Cmaj': [null,3,2,0,1,0],
-  'Cm':   [null,3,5,5,4,3],
-  'C6':   [null,3,2,2,1,0],
-  'C7':   [null,3,2,3,1,0],
-  'C9':   [null,3,2,3,3,3],
-  'Cm6':  [null,3,5,5,4,5],
-  'Cm7':  [null,3,5,3,4,3],
-  'Cmaj7':[null,3,2,0,0,0],
-  'Cdim': [null,3,4,5,4,null],
-  'C+':   [null,3,2,1,1,0],
-  'Csus': [null,3,3,0,1,1],
+  'Cmaj':  [{l:'Open',f:[null,3,2,0,1,0]},{l:'Barre 8',f:[8,10,10,9,8,8]},{l:'Alt',f:[null,3,5,5,5,3]}],
+  'Cm':    [{l:'Barre 3',f:[null,3,5,5,4,3]},{l:'Alt',f:[null,null,5,5,4,3]}],
+  'C6':    [{l:'Open',f:[null,3,2,2,1,0]},{l:'Alt',f:[null,3,2,2,3,3]}],
+  'C7':    [{l:'Open',f:[null,3,2,3,1,0]},{l:'Alt',f:[null,3,5,3,5,3]}],
+  'C9':    [{l:'Open',f:[null,3,2,3,3,3]},{l:'Alt',f:[null,3,2,3,1,3]}],
+  'Cm6':   [{l:'Barre 3',f:[null,3,5,5,4,5]},{l:'Alt',f:[null,3,1,2,1,null]}],
+  'Cm7':   [{l:'Barre 3',f:[null,3,5,3,4,3]},{l:'Alt',f:[null,3,1,3,1,3]}],
+  'Cmaj7': [{l:'Open',f:[null,3,2,0,0,0]},{l:'Alt',f:[null,3,5,4,5,3]}],
+  'Cdim':  [{l:'Open',f:[null,3,4,5,4,null]},{l:'Alt',f:[null,null,1,2,1,2]}],
+  'C+':    [{l:'Open',f:[null,3,2,1,1,0]},{l:'Alt',f:[null,3,6,5,5,null]}],
+  'Csus4': [{l:'Open',f:[null,3,3,0,1,1]},{l:'Alt',f:[null,3,3,0,3,3]}],
+  'Csus2': [{l:'Open',f:[null,3,0,0,1,3]},{l:'Alt',f:[null,3,0,0,3,3]}],
+  'Cadd9': [{l:'Open',f:[null,3,2,0,3,0]},{l:'Alt',f:[null,3,2,0,3,3]}],
+  'C7sus4':[{l:'Open',f:[null,3,3,3,1,1]},{l:'Alt',f:[null,3,3,3,4,3]}],
+  'C5':    [{l:'Open',f:[null,3,5,5,null,null]},{l:'Alt',f:[8,null,10,10,null,null]}],
+  'Cmaj9': [{l:'Open',f:[null,3,2,0,3,0]},{l:'Alt',f:[null,3,0,0,3,0]}],
+  'Cm9':   [{l:'Open',f:[null,3,1,3,1,3]},{l:'Alt',f:[null,3,5,3,4,6]}],
 
   // ── Db / C# ──
-  'Dbmaj':[null,4,3,1,2,1],
-  'Dbm':  [null,4,6,6,5,4],
-  'Db6':  [null,4,3,3,2,1],
-  'Db7':  [null,4,3,4,2,null],
-  'Db9':  [null,4,3,4,4,4],
-  'Dbm6': [null,4,3,1,2,1],
-  'Dbm7': [null,4,6,4,5,4],
-  'Dbmaj7':[null,4,3,1,1,1],
-  'Dbdim':[null,4,5,6,5,null],
-  'Db+':  [null,null,3,2,2,1],
-  'Dbsus':[null,4,4,1,2,2],
+  'Dbmaj': [{l:'Barre 4',f:[null,4,6,6,6,4]},{l:'Open',f:[null,4,3,1,2,1]}],
+  'Dbm':   [{l:'Barre 4',f:[null,4,6,6,5,4]},{l:'Alt',f:[null,null,6,6,5,4]}],
+  'Db6':   [{l:'Open',f:[null,4,6,6,6,6]},{l:'Alt',f:[null,4,3,3,2,1]}],
+  'Db7':   [{l:'Open',f:[null,4,3,4,2,null]},{l:'Alt',f:[null,4,6,4,6,4]}],
+  'Db9':   [{l:'Open',f:[null,4,3,4,2,4]},{l:'Alt',f:[null,4,3,4,4,4]}],
+  'Dbm6':  [{l:'Open',f:[null,4,3,1,2,1]},{l:'Alt',f:[null,4,6,6,5,6]}],
+  'Dbm7':  [{l:'Barre 4',f:[null,4,6,4,5,4]},{l:'Alt',f:[null,4,2,4,2,4]}],
+  'Dbmaj7':[{l:'Barre 4',f:[null,4,6,5,6,4]},{l:'Open',f:[null,4,3,1,1,1]}],
+  'Dbdim': [{l:'Open',f:[null,4,5,6,5,null]},{l:'Alt',f:[null,null,2,3,2,3]}],
+  'Db+':   [{l:'Open',f:[null,null,3,2,2,1]},{l:'Alt',f:[null,4,3,2,2,null]}],
+  'Dbsus4':[{l:'Barre 4',f:[null,4,4,1,2,2]},{l:'Alt',f:[null,4,6,6,7,4]}],
+  'Dbsus2':[{l:'Barre 4',f:[null,4,3,3,2,4]},{l:'Alt',f:[null,4,6,6,4,4]}],
+  'Dbadd9':[{l:'Barre 4',f:[null,4,3,3,1,1]}],
+  'Db7sus4':[{l:'Barre 4',f:[null,4,4,4,2,2]}],
+  'Db5':   [{l:'Barre 4',f:[null,4,6,6,null,null]}],
+  'Dbmaj9':[{l:'Open',f:[null,4,3,3,2,4]}],
+  'Dbm9':  [{l:'Open',f:[null,4,4,4,4,4]}],
 
   // ── D ──
-  'Dmaj': [null,null,0,2,3,2],
-  'Dm':   [null,null,0,2,3,1],
-  'D6':   [null,null,0,2,0,2],
-  'D7':   [null,null,0,2,1,2],
-  'D9':   [null,0,0,2,1,2],
-  'Dm6':  [null,null,0,2,0,1],
-  'Dm7':  [null,null,0,2,1,1],
-  'Dmaj7':[null,null,0,2,2,2],
-  'Ddim': [null,null,0,1,0,1],
-  'D+':   [null,null,0,3,3,2],
-  'Dsus': [null,null,0,2,3,3],
+  'Dmaj':  [{l:'Open',f:[null,null,0,2,3,2]},{l:'Barre 5',f:[null,5,7,7,7,5]},{l:'Alt',f:[null,5,4,2,3,2]}],
+  'Dm':    [{l:'Open',f:[null,null,0,2,3,1]},{l:'Barre 5',f:[null,5,7,7,6,5]}],
+  'D6':    [{l:'Open',f:[null,null,0,2,0,2]},{l:'Alt',f:[null,null,0,4,3,2]}],
+  'D7':    [{l:'Open',f:[null,null,0,2,1,2]},{l:'Alt',f:[null,null,0,2,1,2]}],
+  'D9':    [{l:'Open',f:[null,0,0,2,1,2]},{l:'Alt',f:[null,null,0,2,1,0]}],
+  'Dm6':   [{l:'Open',f:[null,null,0,2,0,1]},{l:'Alt',f:[null,null,3,2,3,1]}],
+  'Dm7':   [{l:'Open',f:[null,null,0,2,1,1]},{l:'Alt',f:[null,null,3,2,1,1]}],
+  'Dmaj7': [{l:'Open',f:[null,null,0,2,2,2]},{l:'Alt',f:[null,null,0,2,2,2]}],
+  'Ddim':  [{l:'Open',f:[null,null,0,1,0,1]},{l:'Alt',f:[null,null,3,4,3,4]}],
+  'D+':    [{l:'Open',f:[null,null,0,3,3,2]},{l:'Alt',f:[null,null,4,3,3,2]}],
+  'Dsus4': [{l:'Open',f:[null,null,0,2,3,3]},{l:'Alt',f:[null,null,0,0,3,3]}],
+  'Dsus2': [{l:'Open',f:[null,null,0,2,3,0]},{l:'Alt',f:[null,0,0,2,3,0]}],
+  'Dadd9': [{l:'Open',f:[null,null,0,2,3,0]},{l:'Alt',f:[null,null,4,2,3,2]}],
+  'D7sus4':[{l:'Open',f:[null,null,0,2,1,3]},{l:'Alt',f:[null,0,0,2,1,3]}],
+  'D5':    [{l:'Open',f:[null,null,0,2,3,null]},{l:'Alt',f:[null,null,0,0,3,null]}],
+  'Dmaj9': [{l:'Open',f:[null,null,0,2,2,0]},{l:'Alt',f:[null,null,4,2,2,2]}],
+  'Dm9':   [{l:'Open',f:[null,null,0,2,1,0]},{l:'Alt',f:[null,null,3,2,1,3]}],
 
   // ── Eb ──
-  'Ebmaj':[null,null,1,3,4,3],
-  'Ebm':  [null,null,1,3,4,2],
-  'Eb6':  [null,null,1,3,1,3],
-  'Eb7':  [null,null,1,3,2,3],
-  'Eb9':  [null,null,1,0,2,1],
-  'Ebm6': [null,null,1,3,1,2],
-  'Ebm7': [null,null,1,3,2,2],
-  'Ebmaj7':[null,null,1,3,3,3],
-  'Ebdim':[null,null,1,2,1,2],
-  'Eb+':  [null,null,1,0,0,3],
-  'Ebsus':[null,null,1,3,4,4],
+  'Ebmaj': [{l:'Barre 6',f:[6,8,8,7,6,6]},{l:'Alt',f:[null,null,1,3,4,3]},{l:'Barre',f:[null,6,8,8,8,6]}],
+  'Ebm':   [{l:'Barre 6',f:[6,8,8,6,6,6]},{l:'Alt',f:[null,null,1,3,4,2]}],
+  'Eb6':   [{l:'Open',f:[null,null,1,3,1,3]},{l:'Alt',f:[null,6,5,3,4,3]}],
+  'Eb7':   [{l:'Open',f:[null,null,1,3,2,3]},{l:'Alt',f:[null,6,8,6,8,6]}],
+  'Eb9':   [{l:'Open',f:[null,null,1,0,2,1]}],
+  'Ebm6':  [{l:'Open',f:[null,null,1,3,1,2]},{l:'Alt',f:[null,6,5,3,4,6]}],
+  'Ebm7':  [{l:'Open',f:[null,null,1,3,2,2]},{l:'Alt',f:[null,6,8,6,7,6]}],
+  'Ebmaj7':[{l:'Open',f:[null,null,1,3,3,3]},{l:'Alt',f:[null,6,8,7,8,6]}],
+  'Ebdim': [{l:'Open',f:[null,null,1,2,1,2]},{l:'Alt',f:[null,6,7,8,7,null]}],
+  'Eb+':   [{l:'Open',f:[null,null,1,0,0,3]},{l:'Alt',f:[null,6,5,4,4,null]}],
+  'Ebsus4':[{l:'Open',f:[null,null,1,3,4,4]},{l:'Alt',f:[null,6,8,8,9,6]}],
+  'Ebsus2':[{l:'Open',f:[null,null,1,3,2,3]},{l:'Alt',f:[null,6,8,8,6,6]}],
+  'Ebadd9':[{l:'Open',f:[null,null,1,3,4,1]}],
+  'Eb7sus4':[{l:'Open',f:[null,null,1,3,2,4]}],
+  'Eb5':   [{l:'Open',f:[null,null,1,3,4,null]},{l:'Alt',f:[6,8,8,null,null,null]}],
+  'Ebmaj9':[{l:'Open',f:[null,null,1,3,3,1]}],
+  'Ebm9':  [{l:'Open',f:[null,null,1,3,2,1]}],
 
   // ── E ──
-  'Emaj': [0,2,2,1,0,0],
-  'Em':   [0,2,2,0,0,0],
-  'E6':   [0,2,2,1,2,0],
-  'E7':   [0,2,0,1,0,0],
-  'E9':   [0,2,0,1,3,2],
-  'Em6':  [0,2,2,0,2,0],
-  'Em7':  [0,2,0,0,0,0],
-  'Emaj7':[0,2,1,1,0,0],
-  'Edim': [0,1,2,3,2,null],
-  'E+':   [0,3,2,1,1,0],
-  'Esus': [0,2,2,2,0,0],
+  'Emaj':  [{l:'Open',f:[0,2,2,1,0,0]},{l:'Barre 7',f:[7,9,9,8,7,7]},{l:'Alt',f:[null,7,9,9,9,7]}],
+  'Em':    [{l:'Open',f:[0,2,2,0,0,0]},{l:'Barre 7',f:[7,9,9,7,7,7]},{l:'Alt',f:[0,2,2,0,3,0]}],
+  'E6':    [{l:'Open',f:[0,2,2,1,2,0]},{l:'Alt',f:[0,2,2,1,2,2]}],
+  'E7':    [{l:'Open',f:[0,2,0,1,0,0]},{l:'Alt',f:[0,2,2,1,3,0]}],
+  'E9':    [{l:'Open',f:[0,2,0,1,0,2]},{l:'Alt',f:[0,2,0,1,3,2]}],
+  'Em6':   [{l:'Open',f:[0,2,2,0,2,0]},{l:'Alt',f:[0,2,2,0,2,2]}],
+  'Em7':   [{l:'Open',f:[0,2,0,0,0,0]},{l:'Alt',f:[0,2,2,0,3,3]}],
+  'Emaj7': [{l:'Open',f:[0,2,1,1,0,0]},{l:'Alt',f:[0,2,2,1,0,0]}],
+  'Edim':  [{l:'Open',f:[0,1,2,3,2,null]},{l:'Alt',f:[null,1,2,3,2,3]}],
+  'E+':    [{l:'Open',f:[0,3,2,1,1,0]},{l:'Alt',f:[0,2,2,1,1,0]}],
+  'Esus4': [{l:'Open',f:[0,2,2,2,0,0]},{l:'Alt',f:[0,0,2,2,0,0]}],
+  'Esus2': [{l:'Open',f:[0,2,2,4,0,0]},{l:'Alt',f:[0,2,4,4,0,0]}],
+  'Eadd9': [{l:'Open',f:[0,2,2,1,0,2]},{l:'Alt',f:[0,2,4,1,0,0]}],
+  'E7sus4':[{l:'Open',f:[0,2,2,2,3,0]},{l:'Alt',f:[0,0,2,2,3,3]}],
+  'E5':    [{l:'Open',f:[0,2,2,null,null,null]},{l:'Alt',f:[null,null,2,2,null,null]}],
+  'Emaj9': [{l:'Open',f:[0,2,1,1,0,2]},{l:'Alt',f:[0,2,2,1,4,0]}],
+  'Em9':   [{l:'Open',f:[0,2,0,0,0,2]},{l:'Alt',f:[0,2,0,2,0,0]}],
 
   // ── F ──
-  'Fmaj': [1,3,3,2,1,1],
-  'Fm':   [1,3,3,1,1,1],
-  'F6':   [null,null,3,2,1,1],
-  'F7':   [1,3,1,2,1,1],
-  'F9':   [1,3,1,2,4,3],
-  'Fm6':  [1,3,3,1,3,1],
-  'Fm7':  [1,3,1,1,1,1],
-  'Fmaj7':[null,null,3,2,1,0],
-  'Fdim': [1,2,3,4,3,null],
-  'F+':   [null,null,3,2,2,1],
-  'Fsus': [1,3,3,3,1,1],
+  'Fmaj':  [{l:'Barre 1',f:[1,3,3,2,1,1]},{l:'Open',f:[null,null,3,2,1,1]},{l:'High',f:[null,null,3,5,6,5]}],
+  'Fm':    [{l:'Barre 1',f:[1,3,3,1,1,1]},{l:'Alt',f:[null,null,3,1,1,1]}],
+  'F6':    [{l:'Open',f:[null,null,3,2,1,1]},{l:'Alt',f:[1,3,3,2,3,1]}],
+  'F7':    [{l:'Barre 1',f:[1,3,1,2,1,1]},{l:'Alt',f:[null,null,3,2,4,1]}],
+  'F9':    [{l:'Open',f:[1,3,1,2,1,3]},{l:'Alt',f:[null,3,1,2,1,1]}],
+  'Fm6':   [{l:'Barre 1',f:[1,3,3,1,3,1]},{l:'Alt',f:[null,null,3,1,1,1]}],
+  'Fm7':   [{l:'Barre 1',f:[1,3,1,1,1,1]},{l:'Alt',f:[null,null,3,1,4,1]}],
+  'Fmaj7': [{l:'Open',f:[null,null,3,2,1,0]},{l:'Barre 1',f:[1,3,3,2,1,0]},{l:'Alt',f:[1,0,3,2,1,0]}],
+  'Fdim':  [{l:'Open',f:[1,2,3,4,3,null]},{l:'Alt',f:[null,null,2,3,2,3]}],
+  'F+':    [{l:'Open',f:[null,null,3,2,2,1]},{l:'Alt',f:[1,null,3,2,2,1]}],
+  'Fsus4': [{l:'Barre 1',f:[1,3,3,3,1,1]},{l:'Alt',f:[null,null,3,3,1,1]}],
+  'Fsus2': [{l:'Barre 1',f:[1,3,3,0,1,1]},{l:'Alt',f:[null,null,3,0,1,1]}],
+  'Fadd9': [{l:'Open',f:[null,null,3,2,1,3]},{l:'Alt',f:[1,null,3,2,1,3]}],
+  'F7sus4':[{l:'Barre 1',f:[1,3,1,3,1,1]},{l:'Alt',f:[null,null,3,3,4,1]}],
+  'F5':    [{l:'Barre 1',f:[1,3,3,null,null,null]},{l:'Alt',f:[null,null,3,3,null,null]}],
+  'Fmaj9': [{l:'Open',f:[null,null,3,2,1,3]},{l:'Alt',f:[null,0,3,2,1,3]}],
+  'Fm9':   [{l:'Barre 1',f:[1,3,1,1,0,1]},{l:'Alt',f:[null,null,3,1,4,3]}],
 
   // ── F# / Gb ──
-  'F#maj':[2,4,4,3,2,2],
-  'F#m':  [2,4,4,2,2,2],
-  'F#6':  [null,null,4,3,2,2],
-  'F#7':  [2,4,2,3,2,2],
-  'F#9':  [2,4,2,3,5,4],
-  'F#m6': [2,4,4,2,4,2],
-  'F#m7': [2,4,2,2,2,2],
-  'F#maj7':[null,null,4,3,2,1],
-  'F#dim':[2,3,4,5,4,null],
-  'F#+':  [null,null,4,3,3,2],
-  'F#sus':[2,4,4,4,2,2],
+  'F#maj': [{l:'Barre 2',f:[2,4,4,3,2,2]},{l:'Alt',f:[null,null,4,3,2,2]},{l:'High',f:[null,null,4,6,7,6]}],
+  'F#m':   [{l:'Barre 2',f:[2,4,4,2,2,2]},{l:'Open',f:[null,null,4,2,2,2]}],
+  'F#6':   [{l:'Open',f:[null,null,4,3,2,2]},{l:'Alt',f:[2,4,4,3,4,2]}],
+  'F#7':   [{l:'Barre 2',f:[2,4,2,3,2,2]},{l:'Alt',f:[null,null,4,3,5,2]}],
+  'F#9':   [{l:'Open',f:[2,4,2,3,2,4]},{l:'Alt',f:[null,4,2,3,2,2]}],
+  'F#m6':  [{l:'Barre 2',f:[2,4,4,2,4,2]},{l:'Alt',f:[null,null,4,2,2,4]}],
+  'F#m7':  [{l:'Barre 2',f:[2,4,2,2,2,2]},{l:'Alt',f:[null,null,4,2,5,2]},{l:'Open',f:[null,0,4,2,2,2]}],
+  'F#maj7':[{l:'Barre 2',f:[2,4,3,3,2,2]},{l:'Open',f:[null,null,4,3,2,1]}],
+  'F#dim': [{l:'Open',f:[2,3,4,5,4,null]},{l:'Alt',f:[null,null,3,4,3,4]}],
+  'F#+':   [{l:'Open',f:[null,null,4,3,3,2]},{l:'Alt',f:[2,null,4,3,3,2]}],
+  'F#sus4':[{l:'Barre 2',f:[2,4,4,4,2,2]},{l:'Alt',f:[null,null,4,4,2,2]}],
+  'F#sus2':[{l:'Barre 2',f:[2,4,4,1,2,2]},{l:'Alt',f:[null,null,4,1,2,2]}],
+  'F#add9':[{l:'Barre 2',f:[2,4,4,3,2,4]},{l:'Alt',f:[null,null,4,3,2,4]}],
+  'F#7sus4':[{l:'Barre 2',f:[2,4,2,4,2,2]},{l:'Alt',f:[null,null,4,4,5,2]}],
+  'F#5':   [{l:'Barre 2',f:[2,4,4,null,null,null]},{l:'Alt',f:[null,null,4,4,null,null]}],
+  'F#maj9':[{l:'Open',f:[null,null,4,3,2,4]},{l:'Alt',f:[2,4,3,3,2,4]}],
+  'F#m9':  [{l:'Barre 2',f:[2,4,2,2,2,4]},{l:'Alt',f:[null,4,4,4,5,4]}],
 
   // ── G ──
-  'Gmaj': [3,2,0,0,0,3],
-  'Gm':   [3,5,5,3,3,3],
-  'G6':   [3,2,0,0,0,0],
-  'G7':   [3,2,0,0,0,1],
-  'G9':   [3,0,0,0,0,1],
-  'Gm6':  [3,5,5,3,5,3],
-  'Gm7':  [3,5,3,3,3,3],
-  'Gmaj7':[3,2,0,0,0,2],
-  'Gdim': [3,4,5,6,5,null],
-  'G+':   [3,2,1,0,0,3],
-  'Gsus': [3,3,0,0,1,3],
+  'Gmaj':  [{l:'Open',f:[3,2,0,0,0,3]},{l:'Alt',f:[3,2,0,0,3,3]},{l:'Barre 3',f:[3,5,5,4,3,3]}],
+  'Gm':    [{l:'Barre 3',f:[3,5,5,3,3,3]},{l:'Alt',f:[null,null,5,3,3,3]}],
+  'G6':    [{l:'Open',f:[3,2,0,0,0,0]},{l:'Alt',f:[3,0,0,0,0,0]}],
+  'G7':    [{l:'Open',f:[3,2,0,0,0,1]},{l:'Alt',f:[3,2,3,0,0,1]}],
+  'G9':    [{l:'Open',f:[3,2,0,0,0,1]},{l:'Alt',f:[3,0,0,0,0,1]}],
+  'Gm6':   [{l:'Barre 3',f:[3,5,5,3,5,3]},{l:'Alt',f:[null,null,2,3,3,3]}],
+  'Gm7':   [{l:'Barre 3',f:[3,5,3,3,3,3]},{l:'Alt',f:[null,null,5,3,6,3]}],
+  'Gmaj7': [{l:'Open',f:[3,2,0,0,0,2]},{l:'Alt',f:[3,2,4,4,3,3]}],
+  'Gdim':  [{l:'Open',f:[3,4,5,6,5,null]},{l:'Alt',f:[null,null,5,6,5,6]}],
+  'G+':    [{l:'Open',f:[3,2,1,0,0,3]},{l:'Alt',f:[3,2,1,0,4,null]}],
+  'Gsus4': [{l:'Open',f:[3,3,0,0,1,3]},{l:'Alt',f:[3,3,0,0,3,3]}],
+  'Gsus2': [{l:'Open',f:[3,0,0,0,1,3]},{l:'Alt',f:[3,0,0,2,3,3]}],
+  'Gadd9': [{l:'Open',f:[3,2,0,2,0,3]},{l:'Alt',f:[3,2,0,2,3,3]}],
+  'G7sus4':[{l:'Open',f:[3,3,0,0,1,1]},{l:'Alt',f:[3,3,0,2,1,1]}],
+  'G5':    [{l:'Open',f:[3,5,5,null,null,null]},{l:'Alt',f:[3,null,0,0,null,null]}],
+  'Gmaj9': [{l:'Open',f:[3,2,0,2,0,2]},{l:'Alt',f:[3,0,0,2,0,0]}],
+  'Gm9':   [{l:'Open',f:[3,null,3,3,3,5]},{l:'Alt',f:[3,5,3,3,3,5]}],
 
-  // ── sus4 (rename existing sus -> sus4) ──
-  // Already stored as 'sus' keys — add sus4 aliases
-  'Csus4':  [null,3,3,0,1,1],
-  'Dsus4':  [null,null,0,2,3,3],
-  'Esus4':  [0,2,2,2,0,0],
-  'Fsus4':  [1,3,3,3,1,1],
-  'Gsus4':  [3,3,0,0,1,3],
-  'Asus4':  [null,0,2,2,3,0],
-  'Bsus4':  [null,2,4,4,5,2],
-  'Bbsus4': [null,1,3,3,4,1],
-  'Ebsus4': [null,null,1,3,4,4],
-  'Absus4': [4,4,6,6,4,4],
-  'Dbsus4': [null,4,4,1,2,2],
-  'F#sus4': [2,4,4,4,2,2],
-
-  // ── sus2 ──
-  'Csus2':  [null,3,0,0,1,3],
-  'Dsus2':  [null,null,0,2,3,0],
-  'Esus2':  [0,2,2,4,0,0],
-  'Fsus2':  [1,3,3,0,1,1],
-  'Gsus2':  [3,0,0,0,1,3],
-  'Asus2':  [null,0,2,2,0,0],
-  'Bsus2':  [null,2,4,4,2,2],
-  'Bbsus2': [null,1,3,3,1,1],
-  'Ebsus2': [null,null,1,3,2,3],
-  'Absus2': [4,4,6,6,4,4],
-  'Dbsus2': [null,4,3,3,2,4],
-  'F#sus2': [2,4,4,1,2,2],
-
-  // ── add9 ──
-  'Cadd9':  [null,3,2,0,3,0],
-  'Dadd9':  [null,null,0,2,3,0],
-  'Eadd9':  [0,2,2,1,0,2],
-  'Fadd9':  [1,null,3,2,1,3],
-  'Gadd9':  [3,2,0,2,0,3],
-  'Aadd9':  [null,0,2,2,2,2],
-  'Badd9':  [null,2,4,4,4,4],
-  'Bbadd9': [null,1,3,3,3,3],
-  'Ebadd9': [null,null,1,3,4,1],
-  'Abadd9': [null,null,1,3,1,1],
-  'Dbadd9': [null,4,3,3,1,1],
-  'F#add9': [2,4,4,3,2,4],
-
-  // ── 7sus4 ──
-  'C7sus4': [null,3,3,3,1,1],
-  'D7sus4': [null,null,0,2,1,3],
-  'E7sus4': [0,2,2,2,3,0],
-  'F7sus4': [1,3,1,3,1,1],
-  'G7sus4': [3,3,0,0,1,1],
-  'A7sus4': [null,0,2,0,3,0],
-  'B7sus4': [null,2,4,2,5,2],
-  'Bb7sus4':[null,1,3,1,4,1],
-  'Eb7sus4':[null,null,1,3,2,4],
-  'Ab7sus4':[4,4,4,5,4,4],
-  'Db7sus4':[null,4,4,4,2,2],
-  'F#7sus4':[2,4,2,4,2,2],
-
-  // ── 5 power chords ──
-  'C5':   [null,3,5,5,null,null],
-  'D5':   [null,null,0,2,3,null],
-  'E5':   [0,2,2,null,null,null],
-  'F5':   [1,3,3,null,null,null],
-  'G5':   [3,5,5,null,null,null],
-  'A5':   [null,0,2,2,null,null],
-  'B5':   [null,2,4,4,null,null],
-  'Bb5':  [null,1,3,3,null,null],
-  'Eb5':  [null,null,1,3,4,null],
-  'Ab5':  [4,null,6,6,null,null],
-  'Db5':  [null,4,6,6,null,null],
-  'F#5':  [2,4,4,null,null,null],
-
-  // ── maj9 ──
-  'Cmaj9':  [null,3,2,0,3,0],
-  'Dmaj9':  [null,null,0,2,2,0],
-  'Emaj9':  [0,2,1,1,0,2],
-  'Fmaj9':  [null,null,3,2,1,3],
-  'Gmaj9':  [3,2,0,2,0,2],
-  'Amaj9':  [null,0,2,1,2,0],
-  'Bbmaj9': [null,1,3,2,3,3],
-  'Ebmaj9': [null,null,1,3,3,3],
-
-  // ── m9 ──
-  'Cm9':   [null,3,1,3,1,3],
-  'Dm9':   [null,null,0,2,1,0],
-  'Em9':   [0,2,0,0,0,2],
-  'Fm9':   [1,3,1,1,0,1],
-  'Gm9':   [3,null,3,3,3,5],
-  'Am9':   [null,0,2,0,1,0],
-  'Bm9':   [null,2,4,2,3,2],
-  'Bbm9':  [null,1,3,1,2,3],
-
-  // ── Slash chords ──
-  // Format: lowest string forced to bass note
-
-  // C slash chords
-  'Cmaj/B':  [null,2,2,0,1,0],   // C/B
-  'Cmaj/G':  [3,2,0,0,1,0],      // C/G (open G bass)
-  'Cmaj/E':  [0,3,2,0,1,0],      // C/E
-  'Cmaj/A':  [null,0,2,0,1,0],   // C/A
-
-  // G slash chords
-  'Gmaj/B':  [null,2,0,0,0,3],   // G/B
-  'Gmaj/F#': [2,2,0,0,0,3],      // G/F#
-  'Gmaj/D':  [null,null,0,0,0,3],// G/D
-  'Gmaj/E':  [0,2,0,0,0,3],      // G/E
-  'Gmaj/A':  [null,0,0,0,0,3],   // G/A
-
-  // D slash chords
-  'Dmaj/F#': [2,null,0,2,3,2],   // D/F#
-  'Dmaj/A':  [null,0,0,2,3,2],   // D/A (open)
-  'Dmaj/C':  [null,3,0,2,3,2],   // D/C
-  'Dmaj/E':  [0,null,0,2,3,2],   // D/E
-  'Dmaj/B':  [null,2,0,2,3,2],   // D/B
-
-  // A slash chords
-  'Amaj/C#': [null,4,2,2,2,0],   // A/C# (C# bass)
-  'Amaj/E':  [0,0,2,2,2,0],      // A/E
-  'Amaj/G':  [3,0,2,2,2,0],      // A/G
-  'Amaj/G#': [4,0,2,2,2,0],      // A/G#
-
-  // E slash chords
-  'Emaj/G#': [4,2,2,1,0,0],      // E/G#
-  'Emaj/B':  [null,2,2,1,0,0],   // E/B
-  'Emaj/D':  [null,null,0,1,0,0],// E/D
-  'Emaj/C#': [null,4,2,1,0,0],   // E/C#
-
-  // F slash chords
-  'Fmaj/A':  [null,0,3,2,1,1],   // F/A
-  'Fmaj/C':  [null,3,3,2,1,1],   // F/C
-  'Fmaj/E':  [0,null,3,2,1,1],   // F/E (rarely used but exists)
-  'Fmaj/G':  [3,null,3,2,1,1],   // F/G
-
-  // B slash chords
-  'Bmaj/D#': [null,null,1,3,4,2], // B/D#
-  'Bmaj/F#': [2,2,4,4,4,2],       // B/F#
-  'Bmaj/A':  [null,0,4,4,4,2],    // B/A
-
-  // Bb slash chords
-  'Bbmaj/D': [null,null,0,3,3,1], // Bb/D
-  'Bbmaj/F': [1,1,3,3,3,1],       // Bb/F
-  'Bbmaj/A': [null,0,3,3,3,1],    // Bb/A
-
-  // Am slash chords
-  'Am/E':    [0,0,2,2,1,0],       // Am/E
-  'Am/G':    [3,0,2,2,1,0],       // Am/G
-  'Am/C':    [null,3,2,2,1,0],    // Am/C
-  'Am/F':    [1,0,2,2,1,0],       // Am/F
-  'Am/B':    [null,2,2,2,1,0],    // Am/B
-
-  // Em slash chords
-  'Em/B':    [null,2,2,0,0,0],    // Em/B
-  'Em/D':    [null,null,0,0,0,0], // Em/D (open D)
-  'Em/G':    [3,2,0,0,0,0],       // Em/G
-  'Em/F#':   [2,2,2,0,0,0],       // Em/F#
-  'Em/C':    [null,3,2,0,0,0],    // Em/C
-
-  // Dm slash chords
-  'Dm/F':    [1,null,0,2,3,1],    // Dm/F
-  'Dm/A':    [null,0,0,2,3,1],    // Dm/A
-  'Dm/C':    [null,3,0,2,3,1],    // Dm/C
-
-  // Cm slash chords
-  'Cm/G':    [3,null,5,5,4,3],    // Cm/G
-  'Cm/Eb':   [null,null,1,5,4,3], // Cm/Eb
-
-  // Gm slash chords
-  'Gm/Bb':   [null,1,5,3,3,3],    // Gm/Bb
-  'Gm/D':    [null,null,0,3,3,3], // Gm/D
-  'Gm/F':    [1,null,0,3,3,3],    // Gm/F
-
-  // Fm slash chords
-  'Fm/C':    [null,3,3,1,1,1],    // Fm/C
-  'Fm/Ab':   [4,null,3,1,1,1],    // Fm/Ab
-
-  // Bm slash chords
-  'Bm/D':    [null,null,0,4,3,2], // Bm/D
-  'Bm/F#':   [2,2,4,4,3,2],       // Bm/F#
-  'Bm/A':    [null,0,4,4,3,2],    // Bm/A
-
-  // F#m slash chords
-  'F#m/A':   [null,0,4,2,2,2],    // F#m/A
-  'F#m/C#':  [null,4,4,2,2,2],    // F#m/C#
-  'F#m/E':   [0,null,4,2,2,2],    // F#m/E
-
-  // C#m / Dbm slash chords
-  'Dbm/Ab':  [4,null,6,6,5,4],    // C#m/G#
-  'Dbm/E':   [0,null,6,6,5,4],    // C#m/E
-
-  // Eb slash chords
-  'Ebmaj/G': [3,null,1,3,4,3],    // Eb/G
-  'Ebmaj/Bb':[null,1,1,3,4,3],    // Eb/Bb
-
-  // Ab slash chords
-  'Abmaj/C': [null,3,1,1,1,4],    // Ab/C
-  'Abmaj/Eb':[null,null,1,1,1,3], // Ab/Eb
-  'Abmaj/G': [3,null,1,1,1,4],    // Ab/G
-
-  // Extra common worship progressions
-  'Cmaj/D':  [null,null,0,0,1,0], // C/D (Csus2 feel)
-  'Gmaj/C':  [null,3,0,0,0,3],    // G/C
-  'Dmaj/G':  [3,null,0,2,3,2],    // D/G
-  'Amaj/D':  [null,null,0,2,2,0], // A/D
-
+    // ── Slash chords (single voicing each) ──
+  'Cmaj/B':  [{l:'Open',f:[null,2,2,0,1,0]}],
+  'Cmaj/G':  [{l:'Open',f:[3,2,0,0,1,0]}],
+  'Cmaj/E':  [{l:'Open',f:[0,3,2,0,1,0]}],
+  'Cmaj/A':  [{l:'Open',f:[null,0,2,0,1,0]}],
+  'Gmaj/B':  [{l:'Open',f:[null,2,0,0,0,3]}],
+  'Gmaj/F#': [{l:'Open',f:[2,2,0,0,0,3]}],
+  'Gmaj/D':  [{l:'Open',f:[null,null,0,0,0,3]}],
+  'Gmaj/E':  [{l:'Open',f:[0,2,0,0,0,3]}],
+  'Gmaj/A':  [{l:'Open',f:[null,0,0,0,0,3]}],
+  'Dmaj/F#': [{l:'Open',f:[2,null,0,2,3,2]}],
+  'Dmaj/A':  [{l:'Open',f:[null,0,0,2,3,2]}],
+  'Dmaj/C':  [{l:'Open',f:[null,3,0,2,3,2]}],
+  'Dmaj/E':  [{l:'Open',f:[0,null,0,2,3,2]}],
+  'Dmaj/B':  [{l:'Open',f:[null,2,0,2,3,2]}],
+  'Amaj/C#': [{l:'Open',f:[null,4,2,2,2,0]}],
+  'Amaj/E':  [{l:'Open',f:[0,0,2,2,2,0]}],
+  'Amaj/G':  [{l:'Open',f:[3,0,2,2,2,0]}],
+  'Amaj/G#': [{l:'Open',f:[4,0,2,2,2,0]}],
+  'Emaj/G#': [{l:'Open',f:[4,2,2,1,0,0]}],
+  'Emaj/B':  [{l:'Open',f:[null,2,2,1,0,0]}],
+  'Emaj/D':  [{l:'Open',f:[null,null,0,1,0,0]}],
+  'Emaj/C#': [{l:'Open',f:[null,4,2,1,0,0]}],
+  'Fmaj/A':  [{l:'Open',f:[null,0,3,2,1,1]}],
+  'Fmaj/C':  [{l:'Open',f:[null,3,3,2,1,1]}],
+  'Fmaj/E':  [{l:'Open',f:[0,null,3,2,1,1]}],
+  'Fmaj/G':  [{l:'Open',f:[3,null,3,2,1,1]}],
+  'Bmaj/D#': [{l:'Open',f:[null,null,1,3,4,2]}],
+  'Bmaj/F#': [{l:'Open',f:[2,2,4,4,4,2]}],
+  'Bmaj/A':  [{l:'Open',f:[null,0,4,4,4,2]}],
+  'Bbmaj/D': [{l:'Open',f:[null,null,0,3,3,1]}],
+  'Bbmaj/F': [{l:'Open',f:[1,1,3,3,3,1]}],
+  'Bbmaj/A': [{l:'Open',f:[null,0,3,3,3,1]}],
+  'Am/E':    [{l:'Open',f:[0,0,2,2,1,0]}],
+  'Am/G':    [{l:'Open',f:[3,0,2,2,1,0]}],
+  'Am/C':    [{l:'Open',f:[null,3,2,2,1,0]}],
+  'Am/F':    [{l:'Open',f:[1,0,2,2,1,0]}],
+  'Am/B':    [{l:'Open',f:[null,2,2,2,1,0]}],
+  'Em/B':    [{l:'Open',f:[null,2,2,0,0,0]}],
+  'Em/D':    [{l:'Open',f:[null,null,0,0,0,0]}],
+  'Em/G':    [{l:'Open',f:[3,2,0,0,0,0]}],
+  'Em/F#':   [{l:'Open',f:[2,2,2,0,0,0]}],
+  'Em/C':    [{l:'Open',f:[null,3,2,0,0,0]}],
+  'Dm/F':    [{l:'Open',f:[1,null,0,2,3,1]}],
+  'Dm/A':    [{l:'Open',f:[null,0,0,2,3,1]}],
+  'Dm/C':    [{l:'Open',f:[null,3,0,2,3,1]}],
+  'Cm/G':    [{l:'Open',f:[3,null,5,5,4,3]}],
+  'Cm/Eb':   [{l:'Open',f:[null,null,1,5,4,3]}],
+  'Gm/Bb':   [{l:'Open',f:[null,1,5,3,3,3]}],
+  'Gm/D':    [{l:'Open',f:[null,null,0,3,3,3]}],
+  'Gm/F':    [{l:'Open',f:[1,null,0,3,3,3]}],
+  'Fm/C':    [{l:'Open',f:[null,3,3,1,1,1]}],
+  'Fm/Ab':   [{l:'Open',f:[4,null,3,1,1,1]}],
+  'Bm/D':    [{l:'Open',f:[null,null,0,4,3,2]}],
+  'Bm/F#':   [{l:'Open',f:[2,2,4,4,3,2]}],
+  'Bm/A':    [{l:'Open',f:[null,0,4,4,3,2]}],
+  'F#m/A':   [{l:'Open',f:[null,0,4,2,2,2]}],
+  'F#m/C#':  [{l:'Open',f:[null,4,4,2,2,2]}],
+  'F#m/E':   [{l:'Open',f:[0,null,4,2,2,2]}],
+  'Dbm/Ab':  [{l:'Open',f:[4,null,6,6,5,4]}],
+  'Dbm/E':   [{l:'Open',f:[0,null,6,6,5,4]}],
+  'Ebmaj/G': [{l:'Open',f:[3,null,1,3,4,3]}],
+  'Ebmaj/Bb':[{l:'Open',f:[null,1,1,3,4,3]}],
+  'Abmaj/C': [{l:'Open',f:[null,3,1,1,1,4]}],
+  'Abmaj/Eb':[{l:'Open',f:[null,null,1,1,1,3]}],
+  'Abmaj/G': [{l:'Open',f:[3,null,1,1,1,4]}],
+  'Cmaj/D':  [{l:'Open',f:[null,null,0,0,1,0]}],
+  'Gmaj/C':  [{l:'Open',f:[null,3,0,0,0,3]}],
+  'Dmaj/G':  [{l:'Open',f:[3,null,0,2,3,2]}],
+  'Amaj/D':  [{l:'Open',f:[null,null,0,2,2,0]}],
 };
+
+
+// ── Compatibility: CHORDS[key] returns first voicing frets ──
+const CHORDS = new Proxy({}, {
+  get(target, key) {
+    const v = CHORD_VOICINGS[key];
+    return v ? v[0].f : undefined;
+  },
+  has(target, key) {
+    return key in CHORD_VOICINGS;
+  }
+});
+
+// ── Get all voicings for a chord key ──
+function getVoicings(key) {
+  return CHORD_VOICINGS[key] || null;
+}
 
 // Map accidental+root combos to canonical chord key
 function chordKey(root, acc, type){
-  let note = root + acc;
-  const norm = {'A#':'Bb','C#':'Db','D#':'Eb','G#':'Ab','F#':'F#'};
+  // root is now the full note name (C, C#, D, D#, E, F, F#, G, G#, A, A#, B)
+  // acc is unused (kept for compat) but root already includes accidental
+  let note = root; // e.g. 'A#', 'C#', 'G#' etc
+  // Normalize sharps to flats where our library uses flats
+  const norm = {'A#':'Bb','C#':'Db','D#':'Eb','G#':'Ab'};
   if(norm[note]) note=norm[note];
+  // F# stays as F#
   if(type.startsWith('/')){
     const slashMaj = note + 'maj' + type;
     const slashMin = note + 'm' + type;
@@ -569,7 +536,6 @@ function chordKey(root, acc, type){
   const suffix = type==='maj'?'maj':type;
   const key1 = note + suffix;
   if(CHORDS[key1]) return key1;
-  // sus4 fallback: try 'sus' (old key name)
   if(type==='sus4'){
     const key2 = note + 'sus';
     if(CHORDS[key2]) return key2;
@@ -580,10 +546,13 @@ function chordKey(root, acc, type){
 function getChord(){
   if(chordCleared) return {key:'', frets:null};
   const root=document.getElementById('cr').value;
-  const acc =document.getElementById('ca').value;
+  const acc =''; // combined into root dropdown
   const type=document.getElementById('ct').value;
   const key=chordKey(root,acc,type);
-  return {key, frets: CHORDS[key]||null};
+  const voicings=CHORD_VOICINGS[key];
+  if(!voicings) return {key, frets:null};
+  const idx=Math.min(+(document.getElementById('voicing').value||0), voicings.length-1);
+  return {key, frets: voicings[idx].f};
 }
 
 // ── Instances ──
@@ -889,15 +858,19 @@ function draw(){
 
 function updateChordDisplay(key, frets){
   const el=document.getElementById('chordNameDisplay');
+  if(chordCleared){ el.textContent=''; return; }
   const root=document.getElementById('cr').value;
-  const acc =document.getElementById('ca').value;
   const type=document.getElementById('ct').value;
-  const accDisplay=acc==='b'?'♭':acc==='#'?'♯':'';
+  // Display root nicely: C# -> C♯, A# -> A♯ etc
+  const rootDisplay = root.replace('#','♯').replace('b','♭');
   const typeDisplay=type==='maj'?'':type;
-  // For slash chords, show as e.g. "G/B"
   const dispType = type.startsWith('/') ? type : typeDisplay;
-  el.textContent=frets ? `${root}${accDisplay}${dispType}` : `${root}${accDisplay}${dispType} (not found)`;
-  el.style.color=frets?'#f0c050':'#c05050';
+  if(frets){
+    el.textContent=`${rootDisplay}${dispType}`;
+    el.style.color='#f0c050';
+  } else {
+    el.textContent='';
+  }
 }
 
 let chordCleared = false;
@@ -941,9 +914,9 @@ function toggleAll(){
 function clearChord(){
   chordCleared = true;
   document.getElementById('chordNameDisplay').textContent = '';
-  // Gray out chord dropdowns
-  ['cr','ca','ct'].forEach(id=>{
+  ['cr','ct','voicing'].forEach(id=>{
     const el=document.getElementById(id);
+    if(!el) return;
     el.style.color='#444';
     el.style.background='#1a1a1a';
     el.style.borderColor='#333';
@@ -971,6 +944,38 @@ function renderToggles(){
   if(btn) btn.textContent = allOff ? 'All On' : 'All Off';
 }
 
+function updateVoicingDropdown(){
+  const root=document.getElementById('cr').value;
+  const acc =''; // combined into root dropdown
+  const type=document.getElementById('ct').value;
+  const key=chordKey(root,acc,type);
+  const voicings=CHORD_VOICINGS[key];
+  const sel=document.getElementById('voicing');
+  const curVal=+sel.value;
+  sel.innerHTML='';
+  if(voicings && voicings.length>1){
+    voicings.forEach((v,i)=>{
+      const opt=document.createElement('option');
+      opt.value=i;
+      opt.textContent=v.l||(i===0?'1st':i===1?'2nd':i===2?'3rd':(i+1)+'th');
+      sel.appendChild(opt);
+    });
+    sel.value=Math.min(curVal,voicings.length-1);
+    sel.disabled=false;
+    sel.style.color='#eee';
+    sel.style.opacity='1';
+  } else {
+    const opt=document.createElement('option');
+    opt.value=0;
+    opt.textContent=voicings?'Only':'—';
+    sel.appendChild(opt);
+    sel.value=0;
+    sel.disabled=!voicings;
+    sel.style.color=voicings?'#eee':'#555';
+    sel.style.opacity=voicings?'1':'0.5';
+  }
+}
+
 function getAvailableSlashBassNotes(root, acc){
   let note = root + acc;
   const norm = {'A#':'Bb','C#':'Db','D#':'Eb','G#':'Ab','F#':'F#'};
@@ -993,7 +998,7 @@ function getAvailableSlashBassNotes(root, acc){
 
 function updateSlashOptions(){
   const root=document.getElementById('cr').value;
-  const acc =document.getElementById('ca').value;
+  const acc ='';
   const available=getAvailableSlashBassNotes(root,acc);
   const ct=document.getElementById('ct');
   const opts=[...ct.options];
@@ -1014,18 +1019,22 @@ document.getElementById('ks').addEventListener('change',all);
 document.getElementById('cap').addEventListener('change',all);
 function activateChordDropdowns(){
   chordCleared=false;
-  ['cr','ca','ct'].forEach(id=>{
+  ['cr','ct'].forEach(id=>{
     const el=document.getElementById(id);
     el.style.color='#eee';
     el.style.background='#2a2a2a';
     el.style.borderColor='#444';
   });
+  // Also restore voicing dropdown
+  const cvSel=document.getElementById('voicing');
+  cvSel.style.color='#eee'; cvSel.style.opacity='1';
 }
-document.getElementById('cr').addEventListener('change',()=>{activateChordDropdowns();updateSlashOptions();all();});
-document.getElementById('ca').addEventListener('change',()=>{activateChordDropdowns();updateSlashOptions();all();});
-document.getElementById('ct').addEventListener('change',()=>{activateChordDropdowns();all();});
+document.getElementById('cr').addEventListener('change',()=>{activateChordDropdowns();updateSlashOptions();updateVoicingDropdown();all();});
+document.getElementById('ct').addEventListener('change',()=>{activateChordDropdowns();updateVoicingDropdown();all();});
+document.getElementById('voicing').addEventListener('change',()=>{if(!chordCleared) draw();});
 window.addEventListener('resize',draw);
 updateSlashOptions();
+updateVoicingDropdown();
 all();
 </script>
 </body>
