@@ -706,14 +706,42 @@ function draw(){
     ctx.beginPath();ctx.moveTo(x,topPad);ctx.lineTo(x,topPad+fbH);ctx.stroke();
   }
 
-  // ── Fret numbers ──
-  for(let f=0;f<=SHOW;f++){
-    ctx.fillStyle=mutedCol;
-    ctx.font='9px sans-serif';
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    const x=lW+f*fw;
-    if(f===0) ctx.fillText('O',lW,topPad-fnH/2);
-    else ctx.fillText(f,x,topPad-fnH/2);
+  // ── Fret position markers (dots between strings) ──
+  const SINGLE_DOTS=[3,5,7,9];
+  const DOUBLE_DOTS=[12];
+  const markerR=Math.max(Math.floor(fw*.12),3);
+  const midY=topPad+fbH/2; // vertical center of fretboard
+
+  // Convert visual fret to x center (between two fret lines = center of fret space)
+  function markerX(vf){ return lW+(vf-0.5)*fw; }
+
+  SINGLE_DOTS.forEach(vf=>{
+    if(vf<1||vf>SHOW) return;
+    const cx=markerX(vf);
+    ctx.beginPath(); ctx.arc(cx, midY, markerR, 0, Math.PI*2);
+    ctx.fillStyle='rgba(180,160,120,0.55)';
+    ctx.fill();
+  });
+
+  DOUBLE_DOTS.forEach(vf=>{
+    if(vf<1||vf>SHOW) return;
+    const cx=markerX(vf);
+    const spread=rowH*1.5;
+    [midY-spread/2, midY+spread/2].forEach(cy=>{
+      ctx.beginPath(); ctx.arc(cx, cy, markerR, 0, Math.PI*2);
+      ctx.fillStyle='rgba(180,160,120,0.55)';
+      ctx.fill();
+    });
+  });
+
+  // ── Fret numbers (centered in each fret gap) ──
+  ctx.fillStyle=mutedCol;
+  ctx.font='9px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(let f=1;f<=SHOW;f++){
+    // Center of gap between fret line f and f+1 (or right edge for last)
+    const x = lW + (f - 0.5) * fw;
+    ctx.fillText(f, x, topPad - fnH/2);
   }
 
   // ── String lines & labels ──
