@@ -1,4 +1,4 @@
-<!-- version: v2.4 -->
+<!-- version: v2.9 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,6 +30,8 @@ select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;pad
 .tog.off{opacity:.2}
 .tog-all{padding:5px 8px;cursor:pointer;font-size:11px;font-weight:600;border:1.5px solid #555;border-radius:5px;background:#2a2a2a;color:#aaa;white-space:nowrap;height:32px}
 .tog-all:hover{border-color:#888;color:#eee}
+.tog-interval{padding:5px 7px;cursor:pointer;font-size:11px;font-weight:600;border:2px solid;border-radius:5px;user-select:none;white-space:nowrap;height:32px;opacity:1}
+.tog-interval.off{opacity:.2}
 .tog-majmin{padding:5px 10px;cursor:pointer;font-size:12px;font-weight:700;border:2px solid #c8a020;border-radius:5px;background:#3a2e08;color:#f0c030;white-space:nowrap;height:32px;letter-spacing:.02em}
 .tog-majmin:hover{filter:brightness(1.15)}
 
@@ -101,6 +103,15 @@ canvas{display:block;width:100%;height:100%}
       <div class="togs" id="togs"></div>
       <button class="tog-all" id="togScale" onclick="toggleScale()" style="border-color:#666;color:#ccc">Scale</button>
       <button class="tog-all" id="togAll" onclick="toggleAll()">All On</button>
+    </div>
+    <!-- Interval layers row -->
+    <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
+      <button class="tog-interval" id="togTriads123" onclick="toggleInterval('triads123')" style="border-color:#e06090;color:#e06090">Triads 1-3</button>
+      <button class="tog-interval off" id="togTriads234" onclick="toggleInterval('triads234')" style="border-color:#60b0e0;color:#60b0e0">Triads 2-4</button>
+      <button class="tog-interval off" id="togTriads345" onclick="toggleInterval('triads345')" style="border-color:#60d090;color:#60d090">Triads 3-5</button>
+      <button class="tog-interval off" id="togTriads456" onclick="toggleInterval('triads456')" style="border-color:#e0a030;color:#e0a030">Triads 4-6</button>
+      <button class="tog-interval off" id="togThirds" onclick="toggleInterval('thirds')" style="border-color:#c070e0;color:#c070e0">3rds</button>
+      <button class="tog-interval off" id="togSixths" onclick="toggleInterval('sixths')" style="border-color:#e07050;color:#e07050">6ths</button>
     </div>
   </div>
 
@@ -815,7 +826,7 @@ function draw(){
         }
       });
     });
-    const SDR=Math.max(Math.floor(DR*0.55),4);
+    const SDR=Math.max(Math.floor(DR*1.1),8); // twice as large
     scaleNoteMap.forEach(({si,vf})=>{
       const row=strRow(si);
       const cx=dotX(vf), cy=dotY(row);
@@ -871,6 +882,164 @@ function draw(){
       });
     }
   }
+
+  // ── Scale note overlay ──────────────────────────────────────────────────
+  if(showScale){
+    const MAJOR_SCALE = isMajor ? [0,2,4,5,7,9,11] : [0,2,3,5,7,8,10];
+    const scaleNoteMap=new Map();
+    SHAPE_ORDER.forEach(sh=>{
+      if(!vis[sh]) return;
+      instances[sh].forEach(shift=>{
+        const def=C_SHAPES[sh];
+        const instVfrets=def.notes.map(([,f])=>f+shift-capo).filter(v=>v>=0&&v<=SHOW);
+        if(!instVfrets.length) return;
+        const minVf=Math.min(...instVfrets);
+        const maxVf=Math.max(...instVfrets);
+        for(let si=0;si<6;si++){
+          for(let vf=minVf;vf<=maxVf;vf++){
+            const k=`${si},${vf}`;
+            if(noteMap.has(k)) continue;
+            if(scaleNoteMap.has(k)) continue;
+            const absFret=vf+capo;
+            const note=(SOPEN[si]+absFret+1200)%12;
+            const interval=(note-effectiveR+12)%12;
+            if(!MAJOR_SCALE.includes(interval)) continue;
+            scaleNoteMap.set(k,{si,vf});
+          }
+        }
+      });
+    });
+    const SDR=Math.max(Math.floor(DR*1.1),8);
+    scaleNoteMap.forEach(({si,vf})=>{
+      const row=strRow(si);
+      const cx=dotX(vf), cy=dotY(row);
+      ctx.beginPath(); ctx.arc(cx,cy,SDR,0,Math.PI*2);
+      ctx.fillStyle='rgba(0,0,0,0.75)';
+      ctx.fill();
+      ctx.strokeStyle='rgba(180,180,180,0.5)';
+      ctx.lineWidth=1;
+      ctx.stroke();
+    });
+  }
+
+  // ── Interval overlays (triads, thirds, sixths) ──────────────────────────
+  const anyInterval = Object.values(intervalVis).some(v=>v);
+  if(anyInterval){
+    const IDR = Math.max(Math.floor(DR*0.72), 6);
+
+    function inShapeRegion(vf){
+      // Intervals show across full neck regardless of CAGED shape toggle status
+      return vf >= 0 && vf <= SHOW;
+    }
+
+    const SCALE_INT = isMajor ? [0,2,4,5,7,9,11] : [0,2,3,5,7,8,10];
+    const CHORD_TONES = isMajor ? [0,4,7] : [0,3,7];
+
+    const STRING_GROUPS = {
+      triads123:[5,4,3], triads234:[4,3,2],
+      triads345:[3,2,1], triads456:[2,1,0]
+    };
+
+    function drawDot(cx,cy,r,color,label){
+      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+      ctx.fillStyle=color+'dd';ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;ctx.stroke();
+      if(label){
+        ctx.fillStyle='white';
+        ctx.font=`bold ${Math.max(r-2,6)}px sans-serif`;
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(label,cx,cy+0.5);
+      }
+    }
+
+    function intLabel(i){ return i===0?'R':(i===4||i===3)?'3':'5'; }
+
+    function drawLine(pts,color){
+      ctx.strokeStyle=color+'55';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(pts[0].cx,pts[0].cy);
+      pts.slice(1).forEach(p=>ctx.lineTo(p.cx,p.cy));
+      ctx.stroke();
+    }
+
+    // Triads - find ALL valid shapes (all inversions) across neck
+    // Use a dedup set to avoid drawing the same triad twice
+    ['triads123','triads234','triads345','triads456'].forEach(key=>{
+      if(!intervalVis[key]) return;
+      const color=INTERVAL_COLORS[key];
+      const [s1,s2,s3]=STRING_GROUPS[key];
+      const drawn=new Set();
+      for(let vf1=0;vf1<=SHOW;vf1++){
+        const i1=(((SOPEN[s1]+vf1+capo)%12)-effectiveR+12)%12;
+        if(!CHORD_TONES.includes(i1)) continue;
+        // Search full range for vf2 - up to 5 frets either side
+        for(let vf2=Math.max(0,vf1-5);vf2<=Math.min(SHOW,vf1+5);vf2++){
+          const i2=(((SOPEN[s2]+vf2+capo)%12)-effectiveR+12)%12;
+          if(!CHORD_TONES.includes(i2)||i2===i1) continue;
+          // Search full range for vf3
+          for(let vf3=Math.max(0,vf2-5);vf3<=Math.min(SHOW,vf2+5);vf3++){
+            const i3=(((SOPEN[s3]+vf3+capo)%12)-effectiveR+12)%12;
+            if(!CHORD_TONES.includes(i3)||i3===i1||i3===i2) continue;
+            // Dedup: use sorted fret combo as key
+            const dk=`${vf1},${vf2},${vf3}`;
+            if(drawn.has(dk)) continue;
+            drawn.add(dk);
+            const pts=[
+              {cx:dotX(vf1),cy:dotY(strRow(s1)),i:i1},
+              {cx:dotX(vf2),cy:dotY(strRow(s2)),i:i2},
+              {cx:dotX(vf3),cy:dotY(strRow(s3)),i:i3}
+            ];
+            pts.forEach(({cx,cy,i})=>drawDot(cx,cy,IDR,color,intLabel(i)));
+          }
+        }
+      }
+    });
+
+    // Thirds (adjacent string pairs)
+    if(intervalVis.thirds){
+      const color=INTERVAL_COLORS.thirds;
+      [[5,4],[4,3],[3,2],[2,1],[1,0]].forEach(([s1,s2])=>{
+        for(let vf1=0;vf1<=SHOW;vf1++){
+          if(!inShapeRegion(vf1)) continue;
+          const i1=(((SOPEN[s1]+vf1+capo)%12)-effectiveR+12)%12;
+          if(!SCALE_INT.includes(i1)) continue;
+          for(let vf2=vf1-1;vf2<=vf1+5;vf2++){
+            if(vf2<0||vf2>SHOW) continue;
+            const i2=(((SOPEN[s2]+vf2+capo)%12)-effectiveR+12)%12;
+            if(!SCALE_INT.includes(i2)) continue;
+            const diff=(i2-i1+12)%12;
+            if(diff===3||diff===4){
+              [{cx:dotX(vf1),cy:dotY(strRow(s1))},{cx:dotX(vf2),cy:dotY(strRow(s2))}]
+                .forEach(({cx,cy})=>drawDot(cx,cy,IDR,color,null));
+              break;
+            }
+          }
+        }
+      });
+    }
+
+    // Sixths (skip-string pairs)
+    if(intervalVis.sixths){
+      const color=INTERVAL_COLORS.sixths;
+      [[5,3],[4,2],[3,1],[2,0]].forEach(([s1,s2])=>{
+        for(let vf1=0;vf1<=SHOW;vf1++){
+          if(!inShapeRegion(vf1)) continue;
+          const i1=(((SOPEN[s1]+vf1+capo)%12)-effectiveR+12)%12;
+          if(!SCALE_INT.includes(i1)) continue;
+          for(let vf2=vf1-2;vf2<=vf1+6;vf2++){
+            if(vf2<0||vf2>SHOW) continue;
+            const i2=(((SOPEN[s2]+vf2+capo)%12)-effectiveR+12)%12;
+            if(!SCALE_INT.includes(i2)) continue;
+            const diff=(i2-i1+12)%12;
+            if(diff===8||diff===9){
+              [{cx:dotX(vf1),cy:dotY(strRow(s1))},{cx:dotX(vf2),cy:dotY(strRow(s2))}]
+                .forEach(({cx,cy})=>drawDot(cx,cy,IDR,color,null));
+              break;
+            }
+          }
+        }
+      });
+    }
+  }
 }
 
 function updateChordDisplay(key, frets){
@@ -891,6 +1060,38 @@ function updateChordDisplay(key, frets){
 }
 
 let chordCleared = false;
+
+// Interval layer visibility
+const intervalVis = {
+  triads123: true,
+  triads234: false,
+  triads345: false,
+  triads456: false,
+  thirds:    false,
+  sixths:    false
+};
+const INTERVAL_COLORS = {
+  triads123: '#e06090',
+  triads234: '#60b0e0',
+  triads345: '#60d090',
+  triads456: '#e0a030',
+  thirds:    '#c070e0',
+  sixths:    '#e07050'
+};
+
+function toggleInterval(key){
+  intervalVis[key] = !intervalVis[key];
+  const btn = document.getElementById('tog' + key.charAt(0).toUpperCase() + key.slice(1));
+  const col = INTERVAL_COLORS[key];
+  if(intervalVis[key]){
+    btn.classList.remove('off');
+    btn.style.background = col + '22';
+  } else {
+    btn.classList.add('off');
+    btn.style.background = 'transparent';
+  }
+  draw();
+}
 let isMajor = true; // true=major pentatonic, false=minor pentatonic
 
 function toggleMajMin(){
