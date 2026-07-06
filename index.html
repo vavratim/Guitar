@@ -1,4 +1,4 @@
-<!-- version: v2.9 -->
+<!-- version: v3.0 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -988,6 +988,7 @@ function draw(){
               {cx:dotX(vf2),cy:dotY(strRow(s2)),i:i2},
               {cx:dotX(vf3),cy:dotY(strRow(s3)),i:i3}
             ];
+            drawLine(pts,color);
             pts.forEach(({cx,cy,i})=>drawDot(cx,cy,IDR,color,intLabel(i)));
           }
         }
@@ -1008,8 +1009,9 @@ function draw(){
             if(!SCALE_INT.includes(i2)) continue;
             const diff=(i2-i1+12)%12;
             if(diff===3||diff===4){
-              [{cx:dotX(vf1),cy:dotY(strRow(s1))},{cx:dotX(vf2),cy:dotY(strRow(s2))}]
-                .forEach(({cx,cy})=>drawDot(cx,cy,IDR,color,null));
+              const tpts=[{cx:dotX(vf1),cy:dotY(strRow(s1))},{cx:dotX(vf2),cy:dotY(strRow(s2))}];
+              drawLine(tpts,color);
+              tpts.forEach(({cx,cy})=>drawDot(cx,cy,IDR,color,null));
               break;
             }
           }
@@ -1031,8 +1033,9 @@ function draw(){
             if(!SCALE_INT.includes(i2)) continue;
             const diff=(i2-i1+12)%12;
             if(diff===8||diff===9){
-              [{cx:dotX(vf1),cy:dotY(strRow(s1))},{cx:dotX(vf2),cy:dotY(strRow(s2))}]
-                .forEach(({cx,cy})=>drawDot(cx,cy,IDR,color,null));
+              const tpts=[{cx:dotX(vf1),cy:dotY(strRow(s1))},{cx:dotX(vf2),cy:dotY(strRow(s2))}];
+              drawLine(tpts,color);
+              tpts.forEach(({cx,cy})=>drawDot(cx,cy,IDR,color,null));
               break;
             }
           }
