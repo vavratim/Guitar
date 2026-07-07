@@ -1,4 +1,4 @@
-<!-- version: v4.3 -->
+<!-- version: v4.4 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,8 +30,17 @@ select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;pad
 .tog.off{opacity:.2}
 .tog-all{padding:5px 8px;cursor:pointer;font-size:11px;font-weight:600;border:1.5px solid #555;border-radius:5px;background:#2a2a2a;color:#aaa;white-space:nowrap;height:32px}
 .tog-all:hover{border-color:#888;color:#eee}
-.tog-interval{padding:5px 7px;cursor:pointer;font-size:11px;font-weight:600;border:2px solid;border-radius:5px;user-select:none;white-space:nowrap;height:32px;opacity:1}
-.tog-interval.off{opacity:.2}
+.interval-dd-btn{padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;border:1.5px solid #556;border-radius:5px;background:#2a2a3e;color:#aac;height:38px;white-space:nowrap}
+.interval-dd-btn:hover{border-color:#88a}
+.interval-dd-btn.active{border-color:#8af;color:#cdf;background:#2a3a5e}
+.interval-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#1e1e2a;border:1px solid #445;border-radius:8px;padding:6px;z-index:1000;box-shadow:0 6px 20px rgba(0,0,0,.5);min-width:150px;max-height:340px;overflow-y:auto}
+.interval-menu.open{display:block}
+.interval-menu label{display:flex;align-items:center;gap:7px;padding:5px 8px;font-size:12px;color:#ccc;cursor:pointer;border-radius:4px;white-space:nowrap}
+.interval-menu label:hover{background:#2a2a3a}
+.interval-menu input{width:15px;height:15px;accent-color:#7af}
+.im-section{font-size:10px;font-weight:700;color:#778;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px 2px}
+.im-clear{margin-top:4px;padding:6px 8px;font-size:11px;color:#e88;cursor:pointer;border-top:1px solid #334;text-align:center}
+.im-clear:hover{color:#faa}
 .tog-majmin{padding:5px 10px;cursor:pointer;font-size:12px;font-weight:700;border:2px solid #c8a020;border-radius:5px;background:#3a2e08;color:#f0c030;white-space:nowrap;height:32px;letter-spacing:.02em}
 .tog-majmin:hover{filter:brightness(1.15)}
 
@@ -115,22 +124,7 @@ canvas{display:block;width:100%;height:auto}
       <button class="tog-all" id="togScale" onclick="toggleScale()" style="border-color:#666;color:#ccc">Scale</button>
       <button class="tog-all" id="togAll" onclick="toggleAll()">All On</button>
     </div>
-    <!-- Interval layers row -->
-    <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
-      <button class="tog-interval" id="togTriads123" onclick="toggleInterval('triads123')" style="border-color:#e06090;color:#e06090">Triads 1-3</button>
-      <button class="tog-interval off" id="togTriads234" onclick="toggleInterval('triads234')" style="border-color:#60b0e0;color:#60b0e0">Triads 2-4</button>
-      <button class="tog-interval off" id="togTriads345" onclick="toggleInterval('triads345')" style="border-color:#60d090;color:#60d090">Triads 3-5</button>
-      <button class="tog-interval off" id="togTriads456" onclick="toggleInterval('triads456')" style="border-color:#e0a030;color:#e0a030">Triads 4-6</button>
-      <button class="tog-interval off" id="togThirds_5_4" onclick="toggleInterval('thirds_5_4')" style="border-color:#c070e0;color:#c070e0">3rd e-B</button>
-      <button class="tog-interval off" id="togThirds_4_3" onclick="toggleInterval('thirds_4_3')" style="border-color:#a050c0;color:#a050c0">3rd B-G</button>
-      <button class="tog-interval off" id="togThirds_3_2" onclick="toggleInterval('thirds_3_2')" style="border-color:#8040a0;color:#8040a0">3rd G-D</button>
-      <button class="tog-interval off" id="togThirds_2_1" onclick="toggleInterval('thirds_2_1')" style="border-color:#603080;color:#603080">3rd D-A</button>
-      <button class="tog-interval off" id="togThirds_1_0" onclick="toggleInterval('thirds_1_0')" style="border-color:#402060;color:#402060">3rd A-E</button>
-      <button class="tog-interval off" id="togSixths_5_3" onclick="toggleInterval('sixths_5_3')" style="border-color:#e07050;color:#e07050">6th e-G</button>
-      <button class="tog-interval off" id="togSixths_4_2" onclick="toggleInterval('sixths_4_2')" style="border-color:#c05030;color:#c05030">6th B-D</button>
-      <button class="tog-interval off" id="togSixths_3_1" onclick="toggleInterval('sixths_3_1')" style="border-color:#a04020;color:#a04020">6th G-A</button>
-      <button class="tog-interval off" id="togSixths_2_0" onclick="toggleInterval('sixths_2_0')" style="border-color:#803010;color:#803010">6th D-E</button>
-    </div>
+
   </div>
 
   <!-- Chord lookup -->
@@ -198,6 +192,29 @@ canvas{display:block;width:100%;height:auto}
     </div>
     <span class="chord-name-display" id="chordNameDisplay"></span>
     <button class="btn-clear" onclick="clearChord()">✕ Clear</button>
+    <div class="ctrl" style="position:relative">
+      <span class="chord-lbl">Intervals</span>
+      <button id="intervalBtn" class="interval-dd-btn" onclick="toggleIntervalMenu()">Layers ▾</button>
+      <div id="intervalMenu" class="interval-menu">
+        <div class="im-section">Triads</div>
+        <label><input type="checkbox" data-int="triads123" checked onchange="onIntervalCheck(this)"> Triads 1-3</label>
+        <label><input type="checkbox" data-int="triads234" onchange="onIntervalCheck(this)"> Triads 2-4</label>
+        <label><input type="checkbox" data-int="triads345" onchange="onIntervalCheck(this)"> Triads 3-5</label>
+        <label><input type="checkbox" data-int="triads456" onchange="onIntervalCheck(this)"> Triads 4-6</label>
+        <div class="im-section">Thirds</div>
+        <label><input type="checkbox" data-int="thirds_5_4" onchange="onIntervalCheck(this)"> 3rd e-B</label>
+        <label><input type="checkbox" data-int="thirds_4_3" onchange="onIntervalCheck(this)"> 3rd B-G</label>
+        <label><input type="checkbox" data-int="thirds_3_2" onchange="onIntervalCheck(this)"> 3rd G-D</label>
+        <label><input type="checkbox" data-int="thirds_2_1" onchange="onIntervalCheck(this)"> 3rd D-A</label>
+        <label><input type="checkbox" data-int="thirds_1_0" onchange="onIntervalCheck(this)"> 3rd A-E</label>
+        <div class="im-section">Sixths</div>
+        <label><input type="checkbox" data-int="sixths_5_3" onchange="onIntervalCheck(this)"> 6th e-G</label>
+        <label><input type="checkbox" data-int="sixths_4_2" onchange="onIntervalCheck(this)"> 6th B-D</label>
+        <label><input type="checkbox" data-int="sixths_3_1" onchange="onIntervalCheck(this)"> 6th G-A</label>
+        <label><input type="checkbox" data-int="sixths_2_0" onchange="onIntervalCheck(this)"> 6th D-E</label>
+        <div class="im-clear" onclick="clearAllIntervals()">Clear all</div>
+      </div>
+    </div>
   </div>
 
   <!-- Fretboard canvas -->
@@ -1120,25 +1137,42 @@ const INTERVAL_COLORS = {
   sixths_2_0: '#803010',
 };
 
-function toggleInterval(key){
-  intervalVis[key] = !intervalVis[key];
-  // Build button ID: e.g. 'thirds_5_4' -> 'togThirds_5_4'
-  const parts = key.split('_');
-  const btnId = 'tog' + parts[0].charAt(0).toUpperCase() + parts[0].slice(1) +
-                (parts.length>1 ? '_'+parts.slice(1).join('_') : '');
-  const btn = document.getElementById(btnId);
-  const col = INTERVAL_COLORS[key];
-  if(btn){
-    if(intervalVis[key]){
-      btn.classList.remove('off');
-      btn.style.background = col + '22';
-    } else {
-      btn.classList.add('off');
-      btn.style.background = 'transparent';
-    }
-  }
+function toggleIntervalMenu(){
+  const menu=document.getElementById('intervalMenu');
+  menu.classList.toggle('open');
+}
+function onIntervalCheck(cb){
+  const key=cb.dataset.int;
+  intervalVis[key]=cb.checked;
+  updateIntervalBtnState();
   draw();
 }
+function clearAllIntervals(){
+  Object.keys(intervalVis).forEach(k=>intervalVis[k]=false);
+  document.querySelectorAll('#intervalMenu input[type=checkbox]').forEach(cb=>cb.checked=false);
+  updateIntervalBtnState();
+  draw();
+}
+function updateIntervalBtnState(){
+  const anyOn=Object.values(intervalVis).some(v=>v);
+  const btn=document.getElementById('intervalBtn');
+  const count=Object.values(intervalVis).filter(v=>v).length;
+  if(anyOn){
+    btn.classList.add('active');
+    btn.textContent=`Layers (${count}) ▾`;
+  } else {
+    btn.classList.remove('active');
+    btn.textContent='Layers ▾';
+  }
+}
+// Close menu when clicking outside
+document.addEventListener('click',(e)=>{
+  const menu=document.getElementById('intervalMenu');
+  const btn=document.getElementById('intervalBtn');
+  if(menu && btn && !menu.contains(e.target) && e.target!==btn){
+    menu.classList.remove('open');
+  }
+});
 let isMajor = true; // true=major pentatonic, false=minor pentatonic
 
 function toggleMajMin(){
@@ -1322,6 +1356,7 @@ document.getElementById('voicing').addEventListener('change',()=>{if(!chordClear
 window.addEventListener('resize',draw);
 updateSlashOptions();
 updateVoicingDropdown();
+updateIntervalBtnState();
 // Start with no chord selected
 chordCleared = true;
 ['cr','ct','voicing'].forEach(id=>{
