@@ -1,4 +1,4 @@
-<!-- version: v3.0 -->
+<!-- version: v4.1 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -110,8 +110,15 @@ canvas{display:block;width:100%;height:100%}
       <button class="tog-interval off" id="togTriads234" onclick="toggleInterval('triads234')" style="border-color:#60b0e0;color:#60b0e0">Triads 2-4</button>
       <button class="tog-interval off" id="togTriads345" onclick="toggleInterval('triads345')" style="border-color:#60d090;color:#60d090">Triads 3-5</button>
       <button class="tog-interval off" id="togTriads456" onclick="toggleInterval('triads456')" style="border-color:#e0a030;color:#e0a030">Triads 4-6</button>
-      <button class="tog-interval off" id="togThirds" onclick="toggleInterval('thirds')" style="border-color:#c070e0;color:#c070e0">3rds</button>
-      <button class="tog-interval off" id="togSixths" onclick="toggleInterval('sixths')" style="border-color:#e07050;color:#e07050">6ths</button>
+      <button class="tog-interval off" id="togThirds_5_4" onclick="toggleInterval('thirds_5_4')" style="border-color:#c070e0;color:#c070e0">3rd e-B</button>
+      <button class="tog-interval off" id="togThirds_4_3" onclick="toggleInterval('thirds_4_3')" style="border-color:#a050c0;color:#a050c0">3rd B-G</button>
+      <button class="tog-interval off" id="togThirds_3_2" onclick="toggleInterval('thirds_3_2')" style="border-color:#8040a0;color:#8040a0">3rd G-D</button>
+      <button class="tog-interval off" id="togThirds_2_1" onclick="toggleInterval('thirds_2_1')" style="border-color:#603080;color:#603080">3rd D-A</button>
+      <button class="tog-interval off" id="togThirds_1_0" onclick="toggleInterval('thirds_1_0')" style="border-color:#402060;color:#402060">3rd A-E</button>
+      <button class="tog-interval off" id="togSixths_5_3" onclick="toggleInterval('sixths_5_3')" style="border-color:#e07050;color:#e07050">6th e-G</button>
+      <button class="tog-interval off" id="togSixths_4_2" onclick="toggleInterval('sixths_4_2')" style="border-color:#c05030;color:#c05030">6th B-D</button>
+      <button class="tog-interval off" id="togSixths_3_1" onclick="toggleInterval('sixths_3_1')" style="border-color:#a04020;color:#a04020">6th G-A</button>
+      <button class="tog-interval off" id="togSixths_2_0" onclick="toggleInterval('sixths_2_0')" style="border-color:#803010;color:#803010">6th D-E</button>
     </div>
   </div>
 
@@ -961,87 +968,88 @@ function draw(){
       ctx.stroke();
     }
 
-    // Triads - find ALL valid shapes (all inversions) across neck
-    // Use a dedup set to avoid drawing the same triad twice
+    // Hardcoded triad shapes as fret offsets from root position on anchor string.
+    // Offsets derived from C major positions, valid for all keys.
+    // Each shape: [offset_s1, offset_s2, offset_s3] from root-fret on s1.
+    // We tile each shape at offset, offset+12 to cover full neck.
+    const TRIAD_SHAPES = {
+      triads123: { anchor:5, shapes:[[-8,-7,-8],[-5,-3,-3],[0,0,1]] },
+      triads234: { anchor:4, shapes:[[0,-1,1],[4,4,4],[7,8,9]] },
+      triads345: { anchor:3, shapes:[[-5,-3,-2],[0,0,2],[4,5,5]] },
+      triads456: { anchor:2, shapes:[[-8,-7,-7],[-5,-3,-2],[0,0,2]] },
+    };
+
     ['triads123','triads234','triads345','triads456'].forEach(key=>{
       if(!intervalVis[key]) return;
       const color=INTERVAL_COLORS[key];
+      const {anchor, shapes}=TRIAD_SHAPES[key];
       const [s1,s2,s3]=STRING_GROUPS[key];
-      const drawn=new Set();
-      for(let vf1=0;vf1<=SHOW;vf1++){
-        const i1=(((SOPEN[s1]+vf1+capo)%12)-effectiveR+12)%12;
-        if(!CHORD_TONES.includes(i1)) continue;
-        // Search full range for vf2 - up to 5 frets either side
-        for(let vf2=Math.max(0,vf1-5);vf2<=Math.min(SHOW,vf1+5);vf2++){
-          const i2=(((SOPEN[s2]+vf2+capo)%12)-effectiveR+12)%12;
-          if(!CHORD_TONES.includes(i2)||i2===i1) continue;
-          // Search full range for vf3
-          for(let vf3=Math.max(0,vf2-5);vf3<=Math.min(SHOW,vf2+5);vf3++){
-            const i3=(((SOPEN[s3]+vf3+capo)%12)-effectiveR+12)%12;
-            if(!CHORD_TONES.includes(i3)||i3===i1||i3===i2) continue;
-            // Dedup: use sorted fret combo as key
-            const dk=`${vf1},${vf2},${vf3}`;
-            if(drawn.has(dk)) continue;
-            drawn.add(dk);
-            const pts=[
-              {cx:dotX(vf1),cy:dotY(strRow(s1)),i:i1},
-              {cx:dotX(vf2),cy:dotY(strRow(s2)),i:i2},
-              {cx:dotX(vf3),cy:dotY(strRow(s3)),i:i3}
-            ];
-            drawLine(pts,color);
-            pts.forEach(({cx,cy,i})=>drawDot(cx,cy,IDR,color,intLabel(i)));
-          }
-        }
-      }
+      // Root fret on anchor string for this key
+      const anchorFret=(effectiveR-SOPEN[anchor]+120)%12;
+
+      shapes.forEach(([o1,o2,o3])=>{
+        // Tile at two octave positions to cover frets 0-13
+        [-12,0,12,24].forEach(oct=>{
+          const af1=anchorFret+o1+oct-capo;
+          const af2=anchorFret+o2+oct-capo;
+          const af3=anchorFret+o3+oct-capo;
+          // Skip if any note is off screen
+          if([af1,af2,af3].some(f=>f<0||f>SHOW)) return;
+          const x1=dotX(af1),y1=dotY(strRow(s1));
+          const x2=dotX(af2),y2=dotY(strRow(s2));
+          const x3=dotX(af3),y3=dotY(strRow(s3));
+          ctx.strokeStyle=color+'cc';
+          ctx.lineWidth=4;
+          ctx.lineJoin='round';
+          ctx.lineCap='round';
+          // Draw only s1->s2 and s2->s3 (no diagonal closing line)
+          ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x3,y3); ctx.stroke();
+        });
+      });
     });
 
-    // Thirds (adjacent string pairs)
-    if(intervalVis.thirds){
-      const color=INTERVAL_COLORS.thirds;
-      [[5,4],[4,3],[3,2],[2,1],[1,0]].forEach(([s1,s2])=>{
-        for(let vf1=0;vf1<=SHOW;vf1++){
-          if(!inShapeRegion(vf1)) continue;
-          const i1=(((SOPEN[s1]+vf1+capo)%12)-effectiveR+12)%12;
-          if(!SCALE_INT.includes(i1)) continue;
-          for(let vf2=vf1-1;vf2<=vf1+5;vf2++){
-            if(vf2<0||vf2>SHOW) continue;
-            const i2=(((SOPEN[s2]+vf2+capo)%12)-effectiveR+12)%12;
-            if(!SCALE_INT.includes(i2)) continue;
-            const diff=(i2-i1+12)%12;
-            if(diff===3||diff===4){
-              const tpts=[{cx:dotX(vf1),cy:dotY(strRow(s1))},{cx:dotX(vf2),cy:dotY(strRow(s2))}];
-              drawLine(tpts,color);
-              tpts.forEach(({cx,cy})=>drawDot(cx,cy,IDR,color,null));
-              break;
-            }
-          }
-        }
-      });
-    }
+    // Thirds and Sixths - hardcoded shapes (root on lower string, interval note on higher string)
+    const THIRDS_SHAPES = {
+      's5_4':{anchor:4,sLow:4,sHigh:5,offsets:[[0,-1],[2,0],[4,2],[5,4],[7,6],[9,7],[11,9]]},
+      's4_3':{anchor:3,sLow:3,sHigh:4,offsets:[[-5,-5],[-3,-4],[-1,-2],[0,0],[2,1],[4,3],[5,5]]},
+      's3_2':{anchor:2,sLow:2,sHigh:3,offsets:[[-8,-10],[-7,-8],[-5,-6],[-3,-5],[-1,-3],[0,-1],[2,0]]},
+      's2_1':{anchor:1,sLow:1,sHigh:2,offsets:[[-1,-3],[0,-1],[2,0],[4,2],[5,4],[7,6],[9,7]]},
+      's1_0':{anchor:0,sLow:0,sHigh:1,offsets:[[-7,-8],[-5,-6],[-3,-5],[-1,-3],[0,-1],[2,0],[4,2]]},
+    };
+    const SIXTHS_SHAPES = {
+      's5_3':{anchor:3,sLow:3,sHigh:5,offsets:[[-5,-5],[-3,-4],[-1,-2],[0,0],[2,2],[4,3],[5,5]]},
+      's4_2':{anchor:2,sLow:2,sHigh:4,offsets:[[-10,-10],[-8,-9],[-7,-7],[-5,-5],[-3,-4],[-1,-2],[0,0]]},
+      's3_1':{anchor:1,sLow:1,sHigh:3,offsets:[[-1,-3],[0,-1],[2,1],[4,2],[5,4],[7,6],[9,7]]},
+      's2_0':{anchor:0,sLow:0,sHigh:2,offsets:[[-7,-8],[-5,-6],[-3,-5],[-1,-3],[0,-1],[2,1],[4,2]]},
+    };
 
-    // Sixths (skip-string pairs)
-    if(intervalVis.sixths){
-      const color=INTERVAL_COLORS.sixths;
-      [[5,3],[4,2],[3,1],[2,0]].forEach(([s1,s2])=>{
-        for(let vf1=0;vf1<=SHOW;vf1++){
-          if(!inShapeRegion(vf1)) continue;
-          const i1=(((SOPEN[s1]+vf1+capo)%12)-effectiveR+12)%12;
-          if(!SCALE_INT.includes(i1)) continue;
-          for(let vf2=vf1-2;vf2<=vf1+6;vf2++){
-            if(vf2<0||vf2>SHOW) continue;
-            const i2=(((SOPEN[s2]+vf2+capo)%12)-effectiveR+12)%12;
-            if(!SCALE_INT.includes(i2)) continue;
-            const diff=(i2-i1+12)%12;
-            if(diff===8||diff===9){
-              const tpts=[{cx:dotX(vf1),cy:dotY(strRow(s1))},{cx:dotX(vf2),cy:dotY(strRow(s2))}];
-              drawLine(tpts,color);
-              tpts.forEach(({cx,cy})=>drawDot(cx,cy,IDR,color,null));
-              break;
-            }
-          }
-        }
+    const SHAPES_MAP = {
+      thirds_5_4:THIRDS_SHAPES['s5_4'], thirds_4_3:THIRDS_SHAPES['s4_3'],
+      thirds_3_2:THIRDS_SHAPES['s3_2'], thirds_2_1:THIRDS_SHAPES['s2_1'],
+      thirds_1_0:THIRDS_SHAPES['s1_0'],
+      sixths_5_3:SIXTHS_SHAPES['s5_3'], sixths_4_2:SIXTHS_SHAPES['s4_2'],
+      sixths_3_1:SIXTHS_SHAPES['s3_1'], sixths_2_0:SIXTHS_SHAPES['s2_0'],
+    };
+
+    Object.keys(SHAPES_MAP).forEach(key=>{
+      if(!intervalVis[key]) return;
+      const color=INTERVAL_COLORS[key];
+      const {anchor,sLow,sHigh,offsets}=SHAPES_MAP[key];
+      const anchorFret=(effectiveR-SOPEN[anchor]+120)%12;
+      offsets.forEach(([oLow,oHigh])=>{
+        [-12,0,12,24].forEach(oct=>{
+          const vfLow=anchorFret+oLow+oct-capo;
+          const vfHigh=anchorFret+oHigh+oct-capo;
+          if(vfLow<0||vfLow>SHOW||vfHigh<0||vfHigh>SHOW) return;
+          ctx.strokeStyle=color+'cc';ctx.lineWidth=3;ctx.lineCap='round';
+          ctx.beginPath();
+          ctx.moveTo(dotX(vfLow),dotY(strRow(sLow)));
+          ctx.lineTo(dotX(vfHigh),dotY(strRow(sHigh)));
+          ctx.stroke();
+        });
       });
-    }
+    });
   }
 }
 
@@ -1070,28 +1078,48 @@ const intervalVis = {
   triads234: false,
   triads345: false,
   triads456: false,
-  thirds:    false,
-  sixths:    false
+  thirds_5_4: false,
+  thirds_4_3: false,
+  thirds_3_2: false,
+  thirds_2_1: false,
+  thirds_1_0: false,
+  sixths_5_3: false,
+  sixths_4_2: false,
+  sixths_3_1: false,
+  sixths_2_0: false,
 };
 const INTERVAL_COLORS = {
   triads123: '#e06090',
   triads234: '#60b0e0',
   triads345: '#60d090',
   triads456: '#e0a030',
-  thirds:    '#c070e0',
-  sixths:    '#e07050'
+  thirds_5_4: '#c070e0',
+  thirds_4_3: '#a050c0',
+  thirds_3_2: '#8040a0',
+  thirds_2_1: '#603080',
+  thirds_1_0: '#402060',
+  sixths_5_3: '#e07050',
+  sixths_4_2: '#c05030',
+  sixths_3_1: '#a04020',
+  sixths_2_0: '#803010',
 };
 
 function toggleInterval(key){
   intervalVis[key] = !intervalVis[key];
-  const btn = document.getElementById('tog' + key.charAt(0).toUpperCase() + key.slice(1));
+  // Build button ID: e.g. 'thirds_5_4' -> 'togThirds_5_4'
+  const parts = key.split('_');
+  const btnId = 'tog' + parts[0].charAt(0).toUpperCase() + parts[0].slice(1) +
+                (parts.length>1 ? '_'+parts.slice(1).join('_') : '');
+  const btn = document.getElementById(btnId);
   const col = INTERVAL_COLORS[key];
-  if(intervalVis[key]){
-    btn.classList.remove('off');
-    btn.style.background = col + '22';
-  } else {
-    btn.classList.add('off');
-    btn.style.background = 'transparent';
+  if(btn){
+    if(intervalVis[key]){
+      btn.classList.remove('off');
+      btn.style.background = col + '22';
+    } else {
+      btn.classList.add('off');
+      btn.style.background = 'transparent';
+    }
   }
   draw();
 }
