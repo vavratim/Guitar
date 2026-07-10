@@ -1,4 +1,4 @@
-<!-- version: v4.4 -->
+<!-- version: v5.0 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -82,18 +82,18 @@ canvas{display:block;width:100%;height:auto}
     <div class="ctrl">
       <span class="clbl">Key</span>
       <select id="ks">
-        <option value="C">C (0)</option>
-        <option value="G">G (1♯)</option>
-        <option value="D">D (2♯)</option>
-        <option value="A">A (3♯)</option>
-        <option value="E">E (4♯)</option>
-        <option value="B">B (5♯)</option>
-        <option value="F#">F♯ (6♯)</option>
-        <option value="F">F (1♭)</option>
-        <option value="Bb">B♭ (2♭)</option>
-        <option value="Eb">E♭ (3♭)</option>
-        <option value="Ab">A♭ (4♭)</option>
-        <option value="Db">D♭ (5♭)</option>
+        <option value="C">C · 0 · Am</option>
+        <option value="G">G · 1♯ · Em</option>
+        <option value="D">D · 2♯ · Bm</option>
+        <option value="A">A · 3♯ · F♯m</option>
+        <option value="E">E · 4♯ · C♯m</option>
+        <option value="B">B · 5♯ · G♯m</option>
+        <option value="F#">F♯ · 6♯ · D♯m</option>
+        <option value="F">F · 1♭ · Dm</option>
+        <option value="Bb">B♭ · 2♭ · Gm</option>
+        <option value="Eb">E♭ · 3♭ · Cm</option>
+        <option value="Ab">A♭ · 4♭ · Fm</option>
+        <option value="Db">D♭ · 5♭ · B♭m</option>
       </select>
     </div>
     <div class="ctrl">
@@ -224,9 +224,9 @@ canvas{display:block;width:100%;height:auto}
 
   <!-- Legend -->
   <div class="legend">
-    <div class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="5.5" fill="#c0392b"/></svg>Root</div>
-    <div class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="5.5" fill="#2471a3"/></svg>3rd</div>
-    <div class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="5.5" fill="#1e8449"/></svg>5th</div>
+    <div class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="5.5" fill="#a01818"/></svg>Root</div>
+    <div class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="5.5" fill="#e67e22"/></svg>3rd</div>
+    <div class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="5.5" fill="#c9a227"/></svg>5th</div>
     <div class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="5.5" fill="none" stroke="#888" stroke-width="1.5"/></svg>Scale</div>
     <div class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="white" stroke="#ccc" stroke-width="1"/></svg>Chord</div>
   </div>
@@ -255,7 +255,7 @@ const C_SHAPES={
 const SHAPE_ORDER=['C','A','G','E','D'];
 const SCOLORS={C:'#f0b0c8',A:'#a8d898',G:'#90b4e8',E:'#f0c070',D:'#c0a0dc'};
 const SDARK ={C:'#c04070',A:'#2a8030',G:'#2050b0',E:'#c07020',D:'#7040b0'};
-const COL_ROOT='#c0392b', COL_3RD='#2471a3', COL_5TH='#1e8449';
+const COL_ROOT='#a01818', COL_3RD='#e67e22', COL_5TH='#c9a227';
 let vis={C:true,A:true,G:true,E:true,D:true};
 
 // ── Chord library ───────────────────────────────────────────────────────────
@@ -643,7 +643,7 @@ function draw(){
   // Minor pentatonic: root(0), b3(3), 4th(5), 5th(7), b7(10)
   const MINOR_PENTA=[0,3,5,7,10];
   const MAJOR_PENTA=[0,2,4,7,9];
-  const effectiveR = R; // always use selected key as root; shapeShift handles position
+  const effectiveR = R; // root always on selected key (parallel minor)
   const pentaIntervals = isMajor ? MAJOR_PENTA : MINOR_PENTA;
   // Chord tone intervals (for coloring root/3rd/5th)
   const INT_ROOT = 0;
@@ -680,7 +680,7 @@ function draw(){
 
   // Shape positions: major anchors to R, minor anchors 3 semitones higher
   // (minor penta of R = major penta of R+3)
-  const shapeShift = isMajor ? R : (R+3);
+  const shapeShift = isMajor ? R : (R+3); // minor: shapes shift +3 (parallel minor)
   const instances=getInstances(shapeShift,capo,SHOW);
 
   function dotX(vf){ return vf===0 ? lW-DR-1 : lW+(vf-0.5)*fw; }
@@ -829,7 +829,7 @@ function draw(){
       ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=1; ctx.stroke();
     }
     const nm=nn(note,useFlats);
-    ctx.fillStyle=(isRoot||is3rd||is5th)?'white':SDARK[sh];
+    ctx.fillStyle=is5th?'#3a2f00':((isRoot||is3rd)?'white':SDARK[sh]);
     ctx.font=`bold ${nm.length>1?Math.max(6,DR-3):Math.max(7,DR-1)}px sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(nm,cx,cy+.5);
@@ -1005,28 +1005,35 @@ function draw(){
     // Offsets derived from C major positions, valid for all keys.
     // Each shape: [offset_s1, offset_s2, offset_s3] from root-fret on s1.
     // We tile each shape at offset, offset+12 to cover full neck.
-    const TRIAD_SHAPES = {
-      triads123: { anchor:5, shapes:[[-8,-7,-8],[-5,-3,-3],[0,0,1]] },
-      triads234: { anchor:4, shapes:[[0,-1,1],[4,4,4],[7,8,9]] },
+    // Triad shapes: separate major and minor sets (minor = flat 3rd).
+    // Offsets from root-fret on anchor string. Anchored to R (actual root).
+    const TRIAD_SHAPES_MAJ = {
+      triads123: { anchor:5, shapes:[[-8,-7,-8],[-5,-3,-3],[0,0,1],[4,5,4]] },
+      triads234: { anchor:4, shapes:[[0,-1,1],[4,4,4],[7,8,9],[12,11,13]] },
       triads345: { anchor:3, shapes:[[-5,-3,-2],[0,0,2],[4,5,5]] },
       triads456: { anchor:2, shapes:[[-8,-7,-7],[-5,-3,-2],[0,0,2]] },
     };
+    const TRIAD_SHAPES_MIN = {
+      triads123: { anchor:5, shapes:[[-5,-4,-3],[0,0,0],[3,5,4]] },
+      triads234: { anchor:4, shapes:[[0,-1,0],[3,4,4],[7,7,9],[12,11,12]] },
+      triads345: { anchor:3, shapes:[[-5,-4,-2],[0,0,1],[3,5,5]] },
+      triads456: { anchor:2, shapes:[[-9,-7,-7],[-5,-4,-2],[0,0,1]] },
+    };
+    const TRIAD_SHAPES = isMajor ? TRIAD_SHAPES_MAJ : TRIAD_SHAPES_MIN;
 
     ['triads123','triads234','triads345','triads456'].forEach(key=>{
       if(!intervalVis[key]) return;
       const color=INTERVAL_COLORS[key];
       const {anchor, shapes}=TRIAD_SHAPES[key];
       const [s1,s2,s3]=STRING_GROUPS[key];
-      // Root fret on anchor string for this key
-      const anchorFret=(effectiveR-SOPEN[anchor]+120)%12;
+      // Anchor to actual root R (not shapeShift) so triad quality is correct
+      const anchorFret=(R-SOPEN[anchor]+120)%12;
 
       shapes.forEach(([o1,o2,o3])=>{
-        // Tile at two octave positions to cover frets 0-13
         [-12,0,12,24].forEach(oct=>{
           const af1=anchorFret+o1+oct-capo;
           const af2=anchorFret+o2+oct-capo;
           const af3=anchorFret+o3+oct-capo;
-          // Skip if any note is off screen
           if([af1,af2,af3].some(f=>f<0||f>SHOW)) return;
           const x1=dotX(af1),y1=dotY(strRow(s1));
           const x2=dotX(af2),y2=dotY(strRow(s2));
@@ -1035,7 +1042,6 @@ function draw(){
           ctx.lineWidth=4;
           ctx.lineJoin='round';
           ctx.lineCap='round';
-          // Draw only s1->s2 and s2->s3 (no diagonal closing line)
           ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
           ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x3,y3); ctx.stroke();
         });
@@ -1069,7 +1075,7 @@ function draw(){
       if(!intervalVis[key]) return;
       const color=INTERVAL_COLORS[key];
       const {anchor,sLow,sHigh,offsets}=SHAPES_MAP[key];
-      const anchorFret=(effectiveR-SOPEN[anchor]+120)%12;
+      const anchorFret=(shapeShift-SOPEN[anchor]+120)%12;
       offsets.forEach(([oLow,oHigh])=>{
         [-12,0,12,24].forEach(oct=>{
           const vfLow=anchorFret+oLow+oct-capo;
