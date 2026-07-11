@@ -1,4 +1,4 @@
-<!-- version: v5.0 -->
+<!-- version: v5.2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -625,7 +625,7 @@ function getInstances(R,capo,SHOW){
     const insts=[];
     for(let oct=-1;oct<=2;oct++){
       const shift=R+oct*12;
-      if(C_SHAPES[sh].notes.some(([,f])=>{const v=f+shift-capo;return v>=0&&v<=SHOW;}))
+      if(C_SHAPES[sh].notes.some(([,f])=>{const v=f+shift+capo;return v>=0&&v<=SHOW;}))
         insts.push(shift);
     }
     out[sh]=insts;
@@ -636,7 +636,7 @@ function getInstances(R,capo,SHOW){
 // ── Draw ──────────────────────────────────────────────────────────────────
 function draw(){
   const key=document.getElementById('ks').value;
-  const capo=+document.getElementById('cap').value;
+  const capo=capoPos;
   const R=ni(EN[key]||key);
   const useFlats=FLAT_KEYS.has(key);
   // For minor mode, the "effective root" for coloring shifts 3 semitones down
@@ -655,7 +655,7 @@ function draw(){
   const W=wrap.clientWidth||window.innerWidth;
   const SHOW=+document.getElementById('numFrets').value;
   const lW=24,rP=4;
-  const shLblH=22,fnH=16;
+  const shLblH=22,fnH=28;
   const gW=W-lW-rP;
   const fw=gW/SHOW;
   // Lock aspect ratio: string spacing (rowH) proportional to fret width (fw)
@@ -669,6 +669,8 @@ function draw(){
   const totalH=fbH+shLblH+fnH+2;
   const H=totalH;
   const DR=Math.min(Math.floor(fw*.38),Math.floor(rowH*.38),10);
+  // Store geometry for pointer/drag handlers
+  window._fbGeo = {lW, fw, topPad, fbH, SHOW, W};
 
   cv.width=W; cv.height=totalH;
   const ctx=cv.getContext('2d');
@@ -691,7 +693,7 @@ function draw(){
   function shapePolygon(sh,shift){
     const pts=[];
     C_SHAPES[sh].notes.forEach(([si,origF])=>{
-      const vf=origF+shift-capo;
+      const vf=origF+shift+capo;
       if(vf<0||vf>SHOW) return;
       pts.push({si,vf,x:dotX(vf),y:dotY(strRow(si))});
     });
@@ -722,7 +724,7 @@ function draw(){
   SHAPE_ORDER.forEach(sh=>{
     if(!vis[sh]) return;
     instances[sh].forEach(shift=>{
-      const vfs=C_SHAPES[sh].notes.map(([,f])=>f+shift-capo).filter(v=>v>=0&&v<=SHOW);
+      const vfs=C_SHAPES[sh].notes.map(([,f])=>f+shift+capo).filter(v=>v>=0&&v<=SHOW);
       if(!vfs.length) return;
       const cx=(dotX(Math.min(...vfs))+dotX(Math.max(...vfs)))/2;
       ctx.fillStyle=SDARK[sh];
@@ -771,12 +773,32 @@ function draw(){
     });
   });
 
+  // ── Capo bar ──
+  if(capo>0){
+    const barX = lW + (capo-0.5)*fw;  // center of capo fret space
+    const grayRight = lW + (capo-1)*fw;  // left edge of capo fret space
+    // Gray out region left of capo (unplayable)
+    ctx.fillStyle='rgba(20,20,25,0.55)';
+    ctx.fillRect(0, topPad, Math.max(0,grayRight), fbH);
+    ctx.fillStyle='#d0a030';
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(barX-6, topPad-2, 12, fbH+4, 5) : ctx.rect(barX-6, topPad-2, 12, fbH+4);
+    ctx.fill();
+    ctx.strokeStyle='#8a6820';
+    ctx.lineWidth=1.5;
+    ctx.stroke();
+    // "CAPO" label
+    ctx.fillStyle='#d0a030';
+    ctx.font='bold 10px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('CAPO', barX, topPad+fbH+11);
+  }
+
   // ── Fret numbers (centered in each fret gap) ──
-  ctx.fillStyle=mutedCol;
-  ctx.font='9px sans-serif';
+  ctx.fillStyle='#999';
+  ctx.font='bold 18px sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
   for(let f=1;f<=SHOW;f++){
-    // Center of gap between fret line f and f+1 (or right edge for last)
     const x = lW + (f - 0.5) * fw;
     ctx.fillText(f, x, topPad - fnH/2);
   }
@@ -800,7 +822,7 @@ function draw(){
     if(!vis[sh]) return;
     instances[sh].forEach(shift=>{
       C_SHAPES[sh].notes.forEach(([si,origF])=>{
-        const vf=origF+shift-capo;
+        const vf=origF+shift+capo;
         if(vf<0||vf>SHOW) return;
         const k=`${si},${vf}`;
         if(!noteMap.has(k)) noteMap.set(k,{si,vf,shapes:[]});
@@ -848,7 +870,7 @@ function draw(){
       instances[sh].forEach(shift=>{
         const def=C_SHAPES[sh];
         // Get fret range for this instance
-        const instVfrets=def.notes.map(([,f])=>f+shift-capo).filter(v=>v>=0&&v<=SHOW);
+        const instVfrets=def.notes.map(([,f])=>f+shift+capo).filter(v=>v>=0&&v<=SHOW);
         if(!instVfrets.length) return;
         const minVf=Math.min(...instVfrets);
         const maxVf=Math.max(...instVfrets);
@@ -904,7 +926,7 @@ function draw(){
           ctx.fillText('×',cx,cy);
           return;
         }
-        const vf=f-capo; // visual fret
+        const vf=f+capo; // visual fret
         if(vf<0||vf>SHOW) return;
         const cx=dotX(vf);
         // Draw white filled dot (slightly smaller)
@@ -931,7 +953,7 @@ function draw(){
       if(!vis[sh]) return;
       instances[sh].forEach(shift=>{
         const def=C_SHAPES[sh];
-        const instVfrets=def.notes.map(([,f])=>f+shift-capo).filter(v=>v>=0&&v<=SHOW);
+        const instVfrets=def.notes.map(([,f])=>f+shift+capo).filter(v=>v>=0&&v<=SHOW);
         if(!instVfrets.length) return;
         const minVf=Math.min(...instVfrets);
         const maxVf=Math.max(...instVfrets);
@@ -1031,9 +1053,9 @@ function draw(){
 
       shapes.forEach(([o1,o2,o3])=>{
         [-12,0,12,24].forEach(oct=>{
-          const af1=anchorFret+o1+oct-capo;
-          const af2=anchorFret+o2+oct-capo;
-          const af3=anchorFret+o3+oct-capo;
+          const af1=anchorFret+o1+oct+capo;
+          const af2=anchorFret+o2+oct+capo;
+          const af3=anchorFret+o3+oct+capo;
           if([af1,af2,af3].some(f=>f<0||f>SHOW)) return;
           const x1=dotX(af1),y1=dotY(strRow(s1));
           const x2=dotX(af2),y2=dotY(strRow(s2));
@@ -1078,8 +1100,8 @@ function draw(){
       const anchorFret=(shapeShift-SOPEN[anchor]+120)%12;
       offsets.forEach(([oLow,oHigh])=>{
         [-12,0,12,24].forEach(oct=>{
-          const vfLow=anchorFret+oLow+oct-capo;
-          const vfHigh=anchorFret+oHigh+oct-capo;
+          const vfLow=anchorFret+oLow+oct+capo;
+          const vfHigh=anchorFret+oHigh+oct+capo;
           if(vfLow<0||vfLow>SHOW||vfHigh<0||vfHigh>SHOW) return;
           ctx.strokeStyle=color+'cc';ctx.lineWidth=3;ctx.lineCap='round';
           ctx.beginPath();
@@ -1110,6 +1132,8 @@ function updateChordDisplay(key, frets){
 }
 
 let chordCleared = false;
+let capoPos = 0; // current capo fret, synced with dropdown; draggable
+let draggingCapo = false;
 
 // Interval layer visibility
 const intervalVis = {
@@ -1342,7 +1366,8 @@ function updateSlashOptions(){
 }
 
 function all(){renderToggles();draw();}
-document.getElementById('ks').addEventListener('change',all);
+document.getElementById('ks').addEventListener('change',all)
+document.getElementById('cap').addEventListener('change',()=>{capoPos=+document.getElementById('cap').value;draw();});
 document.getElementById('cap').addEventListener('change',all);
 function activateChordDropdowns(){
   chordCleared=false;
@@ -1360,6 +1385,73 @@ document.getElementById('cr').addEventListener('change',()=>{activateChordDropdo
 document.getElementById('ct').addEventListener('change',()=>{activateChordDropdowns();updateVoicingDropdown();all();});
 document.getElementById('voicing').addEventListener('change',()=>{if(!chordCleared) draw();});
 window.addEventListener('resize',draw);
+// ── Capo drag interaction ──
+(function setupCapoDrag(){
+  const cv=document.getElementById('cv');
+
+  function fretFromX(clientX){
+    const geo=window._fbGeo; if(!geo) return 0;
+    const rect=cv.getBoundingClientRect();
+    const scaleX=cv.width/rect.width;
+    const x=(clientX-rect.left)*scaleX;
+    // fret space: dotX center = lW+(vf-0.5)*fw. Solve for vf.
+    let vf=Math.round((x-geo.lW)/geo.fw + 0.5);
+    if(vf<0) vf=0;
+    if(vf>geo.SHOW) vf=geo.SHOW;
+    return vf;
+  }
+
+  function nearCapo(clientX){
+    const geo=window._fbGeo; if(!geo) return false;
+    const rect=cv.getBoundingClientRect();
+    const scaleX=cv.width/rect.width;
+    const x=(clientX-rect.left)*scaleX;
+    // Capo bar x (or nut if capo=0)
+    const capoX = capoPos>0 ? geo.lW+(capoPos-0.5)*geo.fw : geo.lW;
+    return Math.abs(x-capoX) < geo.fw*0.7; // within ~0.7 fret of the bar
+  }
+
+  function setCapo(vf){
+    capoPos=vf;
+    const sel=document.getElementById('cap');
+    if(sel){
+      // Only set if option exists, else add temporarily
+      if([...sel.options].some(o=>+o.value===vf)) sel.value=vf;
+    }
+    draw();
+  }
+
+  function onDown(e){
+    const cx=e.touches?e.touches[0].clientX:e.clientX;
+    if(nearCapo(cx)){
+      draggingCapo=true;
+      cv.style.cursor='grabbing';
+      e.preventDefault();
+    }
+  }
+  function onMove(e){
+    if(!draggingCapo){
+      // hover cursor hint
+      const cx=e.touches?e.touches[0].clientX:e.clientX;
+      cv.style.cursor=nearCapo(cx)?'grab':'default';
+      return;
+    }
+    const cx=e.touches?e.touches[0].clientX:e.clientX;
+    setCapo(fretFromX(cx));
+    e.preventDefault();
+  }
+  function onUp(){
+    if(draggingCapo){ draggingCapo=false; cv.style.cursor='default'; }
+  }
+
+  cv.addEventListener('mousedown',onDown);
+  cv.addEventListener('mousemove',onMove);
+  window.addEventListener('mouseup',onUp);
+  cv.addEventListener('touchstart',onDown,{passive:false});
+  cv.addEventListener('touchmove',onMove,{passive:false});
+  window.addEventListener('touchend',onUp);
+})();
+
 updateSlashOptions();
 updateVoicingDropdown();
 updateIntervalBtnState();
