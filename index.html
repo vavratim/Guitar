@@ -1,4 +1,4 @@
-<!-- version: v5.2 -->
+<!-- version: v5.6 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -105,6 +105,7 @@ canvas{display:block;width:100%;height:auto}
         <option value="5">5</option><option value="6">6</option>
         <option value="7">7</option><option value="8">8</option>
         <option value="9">9</option><option value="10">10</option>
+        <option value="11">11</option><option value="12">12</option>
       </select>
     </div>
     <div class="ctrl">
@@ -787,11 +788,26 @@ function draw(){
     ctx.strokeStyle='#8a6820';
     ctx.lineWidth=1.5;
     ctx.stroke();
+    // Grip dots on the capo bar to signal draggability
+    ctx.fillStyle='rgba(60,40,10,0.6)';
+    for(let gy=1;gy<=3;gy++){
+      const yy=topPad+fbH*gy/4;
+      ctx.beginPath(); ctx.arc(barX, yy, 1.6, 0, Math.PI*2); ctx.fill();
+    }
     // "CAPO" label
     ctx.fillStyle='#d0a030';
     ctx.font='bold 10px sans-serif';
     ctx.textAlign='center';
-    ctx.fillText('CAPO', barX, topPad+fbH+11);
+    ctx.fillText('◀ CAPO ▶', barX, topPad+fbH+12);
+  }
+
+  // ── Nut drag hint (when no capo) ──
+  if(capo===0){
+    ctx.fillStyle='rgba(200,160,60,0.5)';
+    for(let gy=1;gy<=3;gy++){
+      const yy=topPad+fbH*gy/4;
+      ctx.beginPath(); ctx.arc(lW-2, yy, 1.6, 0, Math.PI*2); ctx.fill();
+    }
   }
 
   // ── Fret numbers (centered in each fret gap) ──
@@ -1027,6 +1043,19 @@ function draw(){
     // Offsets derived from C major positions, valid for all keys.
     // Each shape: [offset_s1, offset_s2, offset_s3] from root-fret on s1.
     // We tile each shape at offset, offset+12 to cover full neck.
+    // Helper: draw line between two points, trimmed by radius at each end
+    // so lines connect circle edges instead of covering the notes
+    function lineBetween(x1,y1,x2,y2,r){
+      const dx=x2-x1, dy=y2-y1;
+      const len=Math.hypot(dx,dy);
+      if(len<1) return;
+      const ux=dx/len, uy=dy/len;
+      ctx.beginPath();
+      ctx.moveTo(x1+ux*r, y1+uy*r);
+      ctx.lineTo(x2-ux*r, y2-uy*r);
+      ctx.stroke();
+    }
+
     // Triad shapes: separate major and minor sets (minor = flat 3rd).
     // Offsets from root-fret on anchor string. Anchored to R (actual root).
     const TRIAD_SHAPES_MAJ = {
@@ -1064,8 +1093,14 @@ function draw(){
           ctx.lineWidth=4;
           ctx.lineJoin='round';
           ctx.lineCap='round';
-          ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x3,y3); ctx.stroke();
+          lineBetween(x1,y1,x2,y2,DR+1);
+          lineBetween(x2,y2,x3,y3,DR+1);
+          // Color the note borders to match this layer
+          ctx.lineWidth=3;
+          [[x1,y1],[x2,y2],[x3,y3]].forEach(([px,py])=>{
+            ctx.strokeStyle=color;
+            ctx.beginPath(); ctx.arc(px,py,DR+1,0,Math.PI*2); ctx.stroke();
+          });
         });
       });
     });
@@ -1104,10 +1139,14 @@ function draw(){
           const vfHigh=anchorFret+oHigh+oct+capo;
           if(vfLow<0||vfLow>SHOW||vfHigh<0||vfHigh>SHOW) return;
           ctx.strokeStyle=color+'cc';ctx.lineWidth=3;ctx.lineCap='round';
-          ctx.beginPath();
-          ctx.moveTo(dotX(vfLow),dotY(strRow(sLow)));
-          ctx.lineTo(dotX(vfHigh),dotY(strRow(sHigh)));
-          ctx.stroke();
+          const lx1=dotX(vfLow),ly1=dotY(strRow(sLow));
+          const lx2=dotX(vfHigh),ly2=dotY(strRow(sHigh));
+          lineBetween(lx1,ly1,lx2,ly2,DR+1);
+          ctx.lineWidth=3;
+          [[lx1,ly1],[lx2,ly2]].forEach(([px,py])=>{
+            ctx.strokeStyle=color;
+            ctx.beginPath(); ctx.arc(px,py,DR+1,0,Math.PI*2); ctx.stroke();
+          });
         });
       });
     });
@@ -1152,10 +1191,10 @@ const intervalVis = {
   sixths_2_0: false,
 };
 const INTERVAL_COLORS = {
-  triads123: '#e06090',
+  triads123: '#e01050',
   triads234: '#60b0e0',
   triads345: '#60d090',
-  triads456: '#e0a030',
+  triads456: '#0080a0',
   thirds_5_4: '#c070e0',
   thirds_4_3: '#a050c0',
   thirds_3_2: '#8040a0',
