@@ -1,4 +1,4 @@
-<!-- version: v5.6 -->
+<!-- version: v5.7 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -849,8 +849,8 @@ function draw(){
   });
 
   noteMap.forEach(({si,vf,shapes})=>{
-    const note=(SOPEN[si]+vf+capo+1200)%12;
-    const interval=(note-effectiveR+12)%12;
+    const note=(SOPEN[si]+vf+1200)%12;
+    const interval=(note-(effectiveR+capo)+1200)%12;
     const isRoot=interval===INT_ROOT, is3rd=interval===INT_3RD, is5th=interval===INT_5TH;
     const row=strRow(si);
     const cx=dotX(vf), cy=dotY(row);
@@ -895,9 +895,9 @@ function draw(){
             const k=`${si},${vf}`;
             if(noteMap.has(k)) continue; // already drawn as CAGED note
             if(scaleNoteMap.has(k)) continue; // already queued
-            const absFret=vf+capo;
+            const absFret=vf;
             const note=(SOPEN[si]+absFret+1200)%12;
-            const interval=(note-effectiveR+12)%12;
+            const interval=(note-(effectiveR+capo)+1200)%12;
             if(!MAJOR_SCALE.includes(interval)) continue;
             scaleNoteMap.set(k,{si,vf});
           }
@@ -978,9 +978,9 @@ function draw(){
             const k=`${si},${vf}`;
             if(noteMap.has(k)) continue;
             if(scaleNoteMap.has(k)) continue;
-            const absFret=vf+capo;
+            const absFret=vf;
             const note=(SOPEN[si]+absFret+1200)%12;
-            const interval=(note-effectiveR+12)%12;
+            const interval=(note-(effectiveR+capo)+1200)%12;
             if(!MAJOR_SCALE.includes(interval)) continue;
             scaleNoteMap.set(k,{si,vf});
           }
