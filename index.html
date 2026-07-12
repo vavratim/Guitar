@@ -1,4 +1,4 @@
-<!-- version: v5.7 -->
+<!-- version: v6.2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -223,6 +223,9 @@ canvas{display:block;width:100%;height:auto}
     <canvas id="cv"></canvas>
   </div>
 
+  <!-- Capo chord chart (shown only when capo>0) -->
+  <div id="capoChart" style="display:none;padding:6px 10px;font-size:12px;color:#ccc;background:#1a1a24;border-top:1px solid #334;overflow-x:auto;white-space:nowrap"></div>
+
   <!-- Legend -->
   <div class="legend">
     <div class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="5.5" fill="#a01818"/></svg>Root</div>
@@ -254,6 +257,14 @@ const C_SHAPES={
   D:{notes:[[0,10],[0,12],[1,10],[1,12],[2,10],[2,12],[3,9],[3,12],[4,10],[4,13],[5,10],[5,12]]}
 };
 const SHAPE_ORDER=['C','A','G','E','D'];
+// In minor, the CAGED shape LABELS shift: the pattern stored as the major
+// 'G' shape is the minor 'E' shape, etc. (verified: minor E-shape root sits
+// on the minor root on the low E string).
+function shapeLabel(sh, isMaj){
+  if(isMaj) return sh;
+  const i = SHAPE_ORDER.indexOf(sh);
+  return SHAPE_ORDER[(i + 1) % 5];
+}
 const SCOLORS={C:'#f0b0c8',A:'#a8d898',G:'#90b4e8',E:'#f0c070',D:'#c0a0dc'};
 const SDARK ={C:'#c04070',A:'#2a8030',G:'#2050b0',E:'#c07020',D:'#7040b0'};
 const COL_ROOT='#a01818', COL_3RD='#e67e22', COL_5TH='#c9a227';
@@ -635,6 +646,29 @@ function getInstances(R,capo,SHOW){
 }
 
 // ── Draw ──────────────────────────────────────────────────────────────────
+function buildCapoChart(R, isMajor, capo, useFlats){
+  const chart=document.getElementById('capoChart');
+  if(!chart) return;
+  if(capo<=0){ chart.style.display='none'; return; }
+  const CHR_SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const CHR_FLAT=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+  const nm=(idx)=>(useFlats?CHR_FLAT:CHR_SHARP)[((idx%12)+12)%12];
+  const MAJOR_DEG=[[0,''],[2,'m'],[4,'m'],[5,''],[7,''],[9,'m'],[11,'°']];
+  const MINOR_DEG=[[0,'m'],[2,'°'],[3,''],[5,'m'],[7,'m'],[8,''],[10,'']];
+  const deg=isMajor?MAJOR_DEG:MINOR_DEG;
+  const shapeRoot=R;
+  const soundRoot=R+capo;
+  const parts=deg.map(([iv,q])=>{
+    const shapeCh=nm(shapeRoot+iv)+q;
+    const soundCh=nm(soundRoot+iv)+q;
+    return `<span style="color:#8ab">${shapeCh}</span><span style="color:#556">→</span><span style="color:#d0a030">${soundCh}</span>`;
+  });
+  const keyName=nm(R)+(isMajor?'':'m');
+  const soundKeyName=nm(R+capo)+(isMajor?'':'m');
+  chart.innerHTML=`<b style="color:#aaa">Capo ${capo}:</b> play ${keyName} → sounds ${soundKeyName} &nbsp;&nbsp; ` + parts.join(' &nbsp; ');
+  chart.style.display='block';
+}
+
 function draw(){
   const key=document.getElementById('ks').value;
   const capo=capoPos;
@@ -644,7 +678,7 @@ function draw(){
   // Minor pentatonic: root(0), b3(3), 4th(5), 5th(7), b7(10)
   const MINOR_PENTA=[0,3,5,7,10];
   const MAJOR_PENTA=[0,2,4,7,9];
-  const effectiveR = R; // root always on selected key (parallel minor)
+  const effectiveR = isMajor ? R : (R-3+12)%12; // minor = RELATIVE minor (per dropdown label)
   const pentaIntervals = isMajor ? MAJOR_PENTA : MINOR_PENTA;
   // Chord tone intervals (for coloring root/3rd/5th)
   const INT_ROOT = 0;
@@ -683,7 +717,7 @@ function draw(){
 
   // Shape positions: major anchors to R, minor anchors 3 semitones higher
   // (minor penta of R = major penta of R+3)
-  const shapeShift = isMajor ? R : (R+3); // minor: shapes shift +3 (parallel minor)
+  const shapeShift = R; // shapes identical: major key & its relative minor share notes
   const instances=getInstances(shapeShift,capo,SHOW);
 
   function dotX(vf){ return vf===0 ? lW-DR-1 : lW+(vf-0.5)*fw; }
@@ -731,7 +765,7 @@ function draw(){
       ctx.fillStyle=SDARK[sh];
       ctx.font=`bold ${Math.max(10,Math.min(13,Math.floor(fw*.5)))}px sans-serif`;
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(sh,cx,shLblH/2-1);
+      ctx.fillText(shapeLabel(sh,isMajor),cx,shLblH/2-1);
       ctx.font=`${Math.max(7,Math.min(9,Math.floor(fw*.35)))}px sans-serif`;
       ctx.fillStyle=SDARK[sh]+'99';
       ctx.fillText('shape',cx,shLblH/2+8);
@@ -1078,7 +1112,7 @@ function draw(){
       const {anchor, shapes}=TRIAD_SHAPES[key];
       const [s1,s2,s3]=STRING_GROUPS[key];
       // Anchor to actual root R (not shapeShift) so triad quality is correct
-      const anchorFret=(R-SOPEN[anchor]+120)%12;
+      const anchorFret=(effectiveR-SOPEN[anchor]+120)%12;
 
       shapes.forEach(([o1,o2,o3])=>{
         [-12,0,12,24].forEach(oct=>{
@@ -1151,6 +1185,8 @@ function draw(){
       });
     });
   }
+
+  buildCapoChart(effectiveR, isMajor, capo, useFlats);
 }
 
 function updateChordDisplay(key, frets){
@@ -1258,7 +1294,28 @@ function toggleMajMin(){
     btn.style.background  = '#18183a';
     btn.style.color       = '#9090f0';
   }
+  syncChordToKey();
+  renderToggles();
   draw();
+}
+
+// Keep the chord selector's quality in sync with the key's mode when the
+// selected chord is the tonic, so the overlay matches the CAGED notes.
+function syncChordToKey(){
+  const keyVal = document.getElementById('ks').value;      // major key value e.g. 'F'
+  const majIdx = ni(EN[keyVal]||keyVal);
+  // In minor mode the tonic is the RELATIVE minor (3 semitones below)
+  const keyIdx = isMajor ? majIdx : (majIdx-3+12)%12;
+  const cr = document.getElementById('cr');
+  const ct = document.getElementById('ct');
+  if(!cr || !ct) return;
+  const chordIdx = ni(cr.value);
+  // Only auto-adjust if the chord root IS the key root (the tonic chord)
+  if(chordIdx !== keyIdx) return;
+  const t = ct.value;
+  if(isMajor && t === 'm') ct.value = 'maj';
+  else if(!isMajor && t === 'maj') ct.value = 'm';
+  updateVoicingDropdown();
 }
 let showScale = false;
 
@@ -1306,7 +1363,7 @@ function renderToggles(){
     d.style.background=vis[s]?SCOLORS[s]+'55':'transparent';
     d.style.borderColor=SDARK[s];
     d.style.color=SDARK[s];
-    d.textContent=s;
+    d.textContent=shapeLabel(s,isMajor);
     d.addEventListener('click',()=>{vis[s]=!vis[s];renderToggles();draw()});
     el.appendChild(d);
   });
@@ -1405,7 +1462,7 @@ function updateSlashOptions(){
 }
 
 function all(){renderToggles();draw();}
-document.getElementById('ks').addEventListener('change',all)
+document.getElementById('ks').addEventListener('change',()=>{syncChordToKey();all();})
 document.getElementById('cap').addEventListener('change',()=>{capoPos=+document.getElementById('cap').value;draw();});
 document.getElementById('cap').addEventListener('change',all);
 function activateChordDropdowns(){
