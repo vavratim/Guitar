@@ -1,4 +1,4 @@
-<!-- version: v6.2 -->
+<!-- version: v6.7 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -115,8 +115,6 @@ canvas{display:block;width:100%;height:auto}
         <option value="13">13</option>
         <option value="15" selected>15</option>
         <option value="17">17</option>
-        <option value="19">19</option>
-        <option value="22">22</option>
       </select>
     </div>
     <div style="display:flex;gap:4px;align-items:flex-end">
@@ -649,23 +647,36 @@ function getInstances(R,capo,SHOW){
 function buildCapoChart(R, isMajor, capo, useFlats){
   const chart=document.getElementById('capoChart');
   if(!chart) return;
-  if(capo<=0){ chart.style.display='none'; return; }
   const CHR_SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
   const CHR_FLAT=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
   const nm=(idx)=>(useFlats?CHR_FLAT:CHR_SHARP)[((idx%12)+12)%12];
   const MAJOR_DEG=[[0,''],[2,'m'],[4,'m'],[5,''],[7,''],[9,'m'],[11,'°']];
   const MINOR_DEG=[[0,'m'],[2,'°'],[3,''],[5,'m'],[7,'m'],[8,''],[10,'']];
+  const ROMAN_MAJ=['I','ii','iii','IV','V','vi','vii°'];
+  const ROMAN_MIN=['i','ii°','III','iv','v','VI','VII'];
   const deg=isMajor?MAJOR_DEG:MINOR_DEG;
-  const shapeRoot=R;
-  const soundRoot=R+capo;
-  const parts=deg.map(([iv,q])=>{
-    const shapeCh=nm(shapeRoot+iv)+q;
-    const soundCh=nm(soundRoot+iv)+q;
-    return `<span style="color:#8ab">${shapeCh}</span><span style="color:#556">→</span><span style="color:#d0a030">${soundCh}</span>`;
-  });
+  const roman=isMajor?ROMAN_MAJ:ROMAN_MIN;
   const keyName=nm(R)+(isMajor?'':'m');
-  const soundKeyName=nm(R+capo)+(isMajor?'':'m');
-  chart.innerHTML=`<b style="color:#aaa">Capo ${capo}:</b> play ${keyName} → sounds ${soundKeyName} &nbsp;&nbsp; ` + parts.join(' &nbsp; ');
+
+  if(capo>0){
+    // Capo active: show shape chord -> sounding chord
+    const parts=deg.map(([iv,q],i)=>{
+      const shapeCh=nm(R+iv)+q;
+      const soundCh=nm(R+capo+iv)+q;
+      return `<span style="color:#8ab">${shapeCh}</span>`+
+             `<span style="color:#556">→</span>`+
+             `<span style="color:#d0a030">${soundCh}</span>`;
+    });
+    const soundKeyName=nm(R+capo)+(isMajor?'':'m');
+    chart.innerHTML=`<b style="color:#aaa">Capo ${capo}:</b> play <b style="color:#8ab">${keyName}</b> → sounds <b style="color:#d0a030">${soundKeyName}</b> &nbsp;&nbsp; ` + parts.join(' &nbsp; ');
+  } else {
+    // No capo: show the diatonic chords of the key
+    const parts=deg.map(([iv,q],i)=>{
+      const ch=nm(R+iv)+q;
+      return `<span style="color:#d0a030">${ch}</span>`;
+    });
+    chart.innerHTML=`<b style="color:#aaa">Key of ${keyName}:</b> &nbsp; ` + parts.join(' &nbsp; ');
+  }
   chart.style.display='block';
 }
 
@@ -726,13 +737,26 @@ function draw(){
 
   // ── Polygons ──
   function shapePolygon(sh,shift){
+    // Build the polygon from ALL notes of the shape (even off-board ones), then
+    // clamp x to the visible board. This makes shapes end cleanly at the nut /
+    // last fret instead of collapsing into odd wedges.
+    const loBound = capo>0 ? capo : 0;   // capo acts as the new nut
+    const xMin = dotX(Math.max(loBound,0));
+    const xMax = dotX(SHOW);
     const pts=[];
     C_SHAPES[sh].notes.forEach(([si,origF])=>{
       const vf=origF+shift+capo;
-      if(vf<0||vf>SHOW) return;
-      pts.push({si,vf,x:dotX(vf),y:dotY(strRow(si))});
+      // keep the note but clamp its x into the visible range
+      const cx=Math.min(Math.max(dotX(vf), xMin), xMax);
+      pts.push({si,vf,x:cx,y:dotY(strRow(si))});
     });
     if(!pts.length) return null;
+    // If the entire shape lies outside the visible board, skip it
+    const anyVisible = C_SHAPES[sh].notes.some(([,origF])=>{
+      const vf=origF+shift+capo;
+      return vf>=loBound && vf<=SHOW;
+    });
+    if(!anyVisible) return null;
     const byRow=new Map();
     pts.forEach(p=>{const r=strRow(p.si);if(!byRow.has(r))byRow.set(r,[]);byRow.get(r).push(p);});
     const rows=[...byRow.keys()].sort((a,b)=>a-b);
@@ -968,8 +992,8 @@ function draw(){
         const row=strRow(si);
         const cy=dotY(row);
         if(f===null){
-          // muted: X at left edge
-          const cx=lW-CDR-2;
+          // muted: X just left of the nut (or capo, which acts as the new nut)
+          const cx = capo>0 ? lW+(capo-0.5)*fw - CDR - 8 : lW-CDR-2;
           ctx.fillStyle='rgba(180,180,180,.8)';
           ctx.font=`bold ${CDR+2}px sans-serif`;
           ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -986,7 +1010,7 @@ function draw(){
         ctx.strokeStyle='rgba(0,0,0,.4)';
         ctx.lineWidth=1; ctx.stroke();
         // Note name inside
-        const note=(SOPEN[si]+f+1200)%12;
+        const note=(SOPEN[si]+vf+1200)%12; // sounding pitch (includes capo)
         ctx.fillStyle='#222';
         ctx.font=`bold ${CDR>7?8:7}px sans-serif`;
         ctx.textAlign='center'; ctx.textBaseline='middle';
