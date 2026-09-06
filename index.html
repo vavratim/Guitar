@@ -90,25 +90,7 @@ canvas{display:block;width:100%;height:auto}
 </svg></button>
     <div id="settingsMenu" class="settings-menu">
       <div class="settings-menu-item">
-        <span class="clbl">Frets</span>
-        <select id="numFrets" onchange="draw()">
-          <option value="12">12</option>
-          <option value="13">13</option>
-          <option value="15" selected>15</option>
-          <option value="17">17</option>
-        </select>
-      </div>
-      <div class="settings-menu-item">
-        <span class="clbl">Capo</span>
-        <select id="cap">
-          <option value="0">None</option>
-          <option value="1">1</option><option value="2">2</option>
-          <option value="3">3</option><option value="4">4</option>
-          <option value="5">5</option><option value="6">6</option>
-          <option value="7">7</option><option value="8">8</option>
-          <option value="9">9</option><option value="10">10</option>
-          <option value="11">11</option><option value="12">12</option>
-        </select>
+        <button class="tog-all" id="togAll" onclick="toggleAll()" style="width:100%">All Off</button>
       </div>
     </div>
     <button class="btn-screen" onclick="openScreenSettings()" title="Open Display Settings" style="position:fixed;top:22px;right:6px;z-index:999;padding:3px 7px;font-size:13px;height:26px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg">
@@ -142,9 +124,29 @@ canvas{display:block;width:100%;height:auto}
         <option value="Db">D♭ · 5♭ · B♭m</option>
       </select>
     </div>
+    <div class="ctrl">
+      <span class="clbl">Capo</span>
+      <select id="cap">
+        <option value="0">None</option>
+        <option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option>
+        <option value="5">5</option><option value="6">6</option>
+        <option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+        <option value="11">11</option><option value="12">12</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <span class="clbl">Frets</span>
+      <select id="numFrets" onchange="draw()">
+        <option value="12">12</option>
+        <option value="13">13</option>
+        <option value="15" selected>15</option>
+        <option value="17">17</option>
+      </select>
+    </div>
     <div style="display:flex;gap:4px;align-items:flex-end">
       <button class="tog-majmin" id="togMajMin" onclick="toggleMajMin()">Major</button>
-      <button class="tog-all" id="togAll" onclick="toggleAll()">All Off</button>
       <button class="tog-all" id="togScale" onclick="toggleScale()" style="border-color:#666;color:#ccc">Scale</button>
       <button class="tog-all" id="togNumbers" onclick="toggleNumbers()" style="border-color:#666;color:#ccc">Numbers</button>
     </div>
@@ -1384,6 +1386,7 @@ function degreeLabel(interval){ return DEGREE_LABELS[((interval%12)+12)%12]; }
 function toggleNumbers(){
   showNumbers = !showNumbers;
   const btn = document.getElementById('togNumbers');
+  btn.textContent = showNumbers ? 'Notes' : 'Numbers';
   btn.style.borderColor = showNumbers ? '#aaa' : '#666';
   btn.style.color = showNumbers ? '#eee' : '#ccc';
   btn.style.background = showNumbers ? '#3a3a3a' : '#2a2a2a';
