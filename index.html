@@ -30,13 +30,16 @@ select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;pad
 .interval-dd-btn{padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;border:1.5px solid #556;border-radius:5px;background:#2a2a3e;color:#aac;height:38px;white-space:nowrap}
 .interval-dd-btn:hover{border-color:#88a}
 .interval-dd-btn.active{border-color:#8af;color:#cdf;background:#2a3a5e}
-.interval-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#1e1e2a;border:1px solid #445;border-radius:8px;padding:6px;z-index:1000;box-shadow:0 6px 20px rgba(0,0,0,.5);min-width:150px;max-height:340px;overflow-y:auto}
+.interval-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#1e1e2a;border:1px solid #445;border-radius:8px;padding:8px;z-index:1000;box-shadow:0 6px 20px rgba(0,0,0,.5);min-width:230px}
 .interval-menu.open{display:block}
-.interval-menu label{display:flex;align-items:center;gap:7px;padding:5px 8px;font-size:12px;color:#ccc;cursor:pointer;border-radius:4px;white-space:nowrap}
-.interval-menu label:hover{background:#2a2a3a}
-.interval-menu input{width:15px;height:15px;accent-color:#7af}
-.im-section{font-size:10px;font-weight:700;color:#778;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px 2px}
-.im-clear{margin-top:4px;padding:6px 8px;font-size:11px;color:#e88;cursor:pointer;border-top:1px solid #334;text-align:center}
+.int-tabs{display:flex;gap:4px;padding:0 0 8px;border-bottom:1px solid #334;margin-bottom:8px}
+.int-tab{flex:1;padding:6px 4px;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border:1px solid #445;border-radius:5px;background:#242430;color:#889;cursor:pointer}
+.int-tab:hover{border-color:#66a}
+.int-tab.active{background:#2a3a5e;border-color:#8af;color:#cdf}
+.int-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 8px}
+.int-chip{padding:6px 11px;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--chip-color);background:transparent;color:var(--chip-color)}
+.int-chip.active{background:var(--chip-color);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.im-clear{padding:6px 8px;font-size:11px;color:#e88;cursor:pointer;border-top:1px solid #334;text-align:center}
 .im-clear:hover{color:#faa}
 .tog-majmin{padding:5px 10px;cursor:pointer;font-size:12px;font-weight:700;border:2px solid #c8a020;border-radius:5px;background:#3a2e08;color:#f0c030;white-space:nowrap;height:32px;letter-spacing:.02em}
 .tog-majmin:hover{filter:brightness(1.15)}
@@ -220,23 +223,13 @@ canvas{display:block;width:100%;height:auto}
       <span class="chord-lbl">Intervals</span>
       <button id="intervalBtn" class="interval-dd-btn" onclick="toggleIntervalMenu()">Layers ▾</button>
       <div id="intervalMenu" class="interval-menu">
-        <div class="im-section">Triads</div>
-        <label><input type="checkbox" data-int="triads123" onchange="onIntervalCheck(this)"> Triads 1-3</label>
-        <label><input type="checkbox" data-int="triads234" onchange="onIntervalCheck(this)"> Triads 2-4</label>
-        <label><input type="checkbox" data-int="triads345" onchange="onIntervalCheck(this)"> Triads 3-5</label>
-        <label><input type="checkbox" data-int="triads456" onchange="onIntervalCheck(this)"> Triads 4-6</label>
-        <div class="im-section">Thirds</div>
-        <label><input type="checkbox" data-int="thirds_5_4" onchange="onIntervalCheck(this)"> 3rd e-B</label>
-        <label><input type="checkbox" data-int="thirds_4_3" onchange="onIntervalCheck(this)"> 3rd B-G</label>
-        <label><input type="checkbox" data-int="thirds_3_2" onchange="onIntervalCheck(this)"> 3rd G-D</label>
-        <label><input type="checkbox" data-int="thirds_2_1" onchange="onIntervalCheck(this)"> 3rd D-A</label>
-        <label><input type="checkbox" data-int="thirds_1_0" onchange="onIntervalCheck(this)"> 3rd A-E</label>
-        <div class="im-section">Sixths</div>
-        <label><input type="checkbox" data-int="sixths_5_3" onchange="onIntervalCheck(this)"> 6th e-G</label>
-        <label><input type="checkbox" data-int="sixths_4_2" onchange="onIntervalCheck(this)"> 6th B-D</label>
-        <label><input type="checkbox" data-int="sixths_3_1" onchange="onIntervalCheck(this)"> 6th G-A</label>
-        <label><input type="checkbox" data-int="sixths_2_0" onchange="onIntervalCheck(this)"> 6th D-E</label>
-        <div class="im-clear" onclick="clearAllIntervals()">Clear all</div>
+        <div class="int-tabs">
+          <button class="int-tab" data-cat="triads" onclick="selectIntervalCat('triads')">Triads</button>
+          <button class="int-tab" data-cat="thirds" onclick="selectIntervalCat('thirds')">Thirds</button>
+          <button class="int-tab" data-cat="sixths" onclick="selectIntervalCat('sixths')">Sixths</button>
+        </div>
+        <div class="int-chips" id="intChips"></div>
+        <div class="im-clear" onclick="clearAllIntervals()">Off</div>
       </div>
     </div>
   </div>
@@ -1285,33 +1278,95 @@ const INTERVAL_COLORS = {
   sixths_2_0: '#803010',
 };
 
+// Interval picker: one layer active at a time, grouped by category so the
+// menu is a couple of taps (category tab, then chip) instead of a 13-item
+// checkbox list.
+const INTERVAL_GROUPS = {
+  triads: [
+    {key:'triads123', label:'1-3'},
+    {key:'triads234', label:'2-4'},
+    {key:'triads345', label:'3-5'},
+    {key:'triads456', label:'4-6'},
+  ],
+  thirds: [
+    {key:'thirds_5_4', label:'e-B'},
+    {key:'thirds_4_3', label:'B-G'},
+    {key:'thirds_3_2', label:'G-D'},
+    {key:'thirds_2_1', label:'D-A'},
+    {key:'thirds_1_0', label:'A-E'},
+  ],
+  sixths: [
+    {key:'sixths_5_3', label:'e-G'},
+    {key:'sixths_4_2', label:'B-D'},
+    {key:'sixths_3_1', label:'G-A'},
+    {key:'sixths_2_0', label:'D-E'},
+  ],
+};
+const INTERVAL_CAT_LABEL = {triads:'Triad', thirds:'3rd', sixths:'6th'};
+const INTERVAL_META = {};
+Object.keys(INTERVAL_GROUPS).forEach(cat=>{
+  INTERVAL_GROUPS[cat].forEach(g=>{ INTERVAL_META[g.key]={cat, label:g.label}; });
+});
+let intervalCat = 'triads';
+
 function toggleIntervalMenu(){
   const menu=document.getElementById('intervalMenu');
+  const opening=!menu.classList.contains('open');
+  if(opening){
+    const activeKey=Object.keys(intervalVis).find(k=>intervalVis[k]);
+    if(activeKey) intervalCat=INTERVAL_META[activeKey].cat;
+    renderIntervalTabs();
+    renderIntervalChips();
+  }
   menu.classList.toggle('open');
 }
 function toggleSettingsMenu(){
   const menu=document.getElementById('settingsMenu');
   menu.classList.toggle('open');
 }
-function onIntervalCheck(cb){
-  const key=cb.dataset.int;
-  intervalVis[key]=cb.checked;
+function selectIntervalCat(cat){
+  intervalCat=cat;
+  renderIntervalTabs();
+  renderIntervalChips();
+}
+function renderIntervalTabs(){
+  document.querySelectorAll('.int-tab').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.cat===intervalCat);
+  });
+}
+function renderIntervalChips(){
+  const wrap=document.getElementById('intChips');
+  wrap.innerHTML='';
+  INTERVAL_GROUPS[intervalCat].forEach(g=>{
+    const btn=document.createElement('button');
+    btn.className='int-chip'+(intervalVis[g.key]?' active':'');
+    btn.style.setProperty('--chip-color', INTERVAL_COLORS[g.key]);
+    btn.textContent=g.label;
+    btn.onclick=()=>selectInterval(g.key);
+    wrap.appendChild(btn);
+  });
+}
+function selectInterval(key){
+  Object.keys(intervalVis).forEach(k=>intervalVis[k]=(k===key));
+  renderIntervalChips();
   updateIntervalBtnState();
   draw();
+  document.getElementById('intervalMenu').classList.remove('open');
 }
 function clearAllIntervals(){
   Object.keys(intervalVis).forEach(k=>intervalVis[k]=false);
-  document.querySelectorAll('#intervalMenu input[type=checkbox]').forEach(cb=>cb.checked=false);
+  renderIntervalChips();
   updateIntervalBtnState();
   draw();
+  document.getElementById('intervalMenu').classList.remove('open');
 }
 function updateIntervalBtnState(){
-  const anyOn=Object.values(intervalVis).some(v=>v);
   const btn=document.getElementById('intervalBtn');
-  const count=Object.values(intervalVis).filter(v=>v).length;
-  if(anyOn){
+  const activeKey=Object.keys(intervalVis).find(k=>intervalVis[k]);
+  if(activeKey){
+    const meta=INTERVAL_META[activeKey];
     btn.classList.add('active');
-    btn.textContent=`Layers (${count}) ▾`;
+    btn.textContent=`${INTERVAL_CAT_LABEL[meta.cat]} ${meta.label} ▾`;
   } else {
     btn.classList.remove('active');
     btn.textContent='Layers ▾';
