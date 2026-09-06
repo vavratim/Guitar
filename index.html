@@ -31,7 +31,7 @@ select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;pad
 .interval-dd-btn{padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;border:1.5px solid #556;border-radius:5px;background:#2a2a3e;color:#aac;height:38px;white-space:nowrap}
 .interval-dd-btn:hover{border-color:#88a}
 .interval-dd-btn.active{border-color:#8af;color:#cdf;background:#2a3a5e}
-.interval-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#1e1e2a;border:1px solid #445;border-radius:8px;padding:8px;z-index:1000;box-shadow:0 6px 20px rgba(0,0,0,.5);min-width:230px}
+.interval-menu{display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#1e1e2a;border:1px solid #445;border-radius:8px;padding:8px;z-index:1000;box-shadow:0 6px 20px rgba(0,0,0,.5)}
 .interval-menu.open{display:block}
 .int-tabs{display:flex;gap:4px;padding:0 0 8px;border-bottom:1px solid #334;margin-bottom:8px}
 .int-tab{flex:1;padding:6px 4px;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border:1px solid #445;border-radius:5px;background:#242430;color:#889;cursor:pointer}
@@ -54,9 +54,9 @@ select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;pad
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px}
 
 /* Chord picker sheet */
-.picker-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:flex-end;justify-content:center}
-.picker-overlay.open{display:flex}
-.picker-sheet{background:#1e1e2a;border:1px solid #445;border-top-left-radius:14px;border-top-right-radius:14px;width:100%;max-width:420px;padding-bottom:10px;box-shadow:0 -8px 30px rgba(0,0,0,.6)}
+.picker-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000}
+.picker-overlay.open{display:block}
+.picker-sheet{position:absolute;background:#1e1e2a;border:1px solid #445;border-radius:12px;width:300px;max-width:calc(100vw - 12px);padding-bottom:10px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
 .picker-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #333}
 .picker-title{font-size:13px;font-weight:700;color:#ccc;letter-spacing:.03em;text-transform:uppercase}
 .picker-cancel{background:none;border:none;color:#e88;font-size:14px;cursor:pointer;padding:4px 6px}
@@ -77,7 +77,7 @@ select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;pad
 /* Phone: shrink the control row so it stays on one line */
 @media (max-width:480px){
   /* right padding keeps the row clear of the fixed menu button */
-  .ctrl-row{gap:2px;padding-right:32px}
+  .ctrl-row{gap:2px;padding-right:30px}
   .chord-picker-btn::after,.interval-dd-btn::after{content:""}
   .tog-group{gap:2px}
   .ctrl-row .clbl{display:none}
@@ -87,6 +87,8 @@ select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;pad
   .chord-picker-btn{font-size:11.5px;padding:4px 5px;height:28px;min-width:0}
   .btn-clear{font-size:12px;padding:4px 5px;height:28px}
   .interval-dd-btn{font-size:9.5px;padding:4px 4px;height:28px}
+  .wheel-item{font-size:11.5px}
+  .wheel-item.selected{font-size:12.5px}
 }
 
 /* Canvas */
@@ -237,10 +239,10 @@ canvas{display:block;width:100%;height:auto}
   </div>
 
   <!-- Chord picker: one button opens this instead of three separate dropdowns -->
-  <div id="chordPickerOverlay" class="picker-overlay" onclick="if(event.target===this) closeChordPicker()">
+  <div id="chordPickerOverlay" class="picker-overlay" onclick="if(event.target===this) applyChordPicker()">
     <div class="picker-sheet">
       <div class="picker-header">
-        <button class="picker-cancel" onclick="closeChordPicker()">Cancel</button>
+        <button class="picker-cancel" onclick="cancelChordPicker()">Cancel</button>
         <span class="picker-title">Chord</span>
         <button class="picker-done" onclick="applyChordPicker()">Done</button>
       </div>
@@ -1321,6 +1323,20 @@ function toggleIntervalMenu(){
     renderIntervalChips();
   }
   menu.classList.toggle('open');
+  if(opening) positionIntervalMenu();
+}
+// Sit the menu directly under its button. Like the chord sheet it narrows
+// toward the space right of the button first, and only shifts left once it
+// hits its minimum width, so it stays inside the row (and so the screen).
+function positionIntervalMenu(){
+  const menu=document.getElementById('intervalMenu');
+  const btn=document.getElementById('intervalBtn');
+  const row=document.querySelector('.ctrl-row');
+  const b=btn.getBoundingClientRect(), r=row.getBoundingClientRect();
+  const width=Math.max(176, Math.min(230, r.right-b.left));
+  menu.style.width=width+'px';
+  const left=Math.min(b.left-r.left, r.width-width);
+  menu.style.left=Math.max(0,left)+'px';
 }
 function toggleSettingsMenu(){
   const menu=document.getElementById('settingsMenu');
@@ -1344,34 +1360,41 @@ function renderIntervalChips(){
     btn.className='int-chip'+(intervalVis[g.key]?' active':'');
     btn.style.setProperty('--chip-color', INTERVAL_COLORS[g.key]);
     btn.textContent=g.label;
+    btn.dataset.key=g.key;
     btn.onclick=()=>selectInterval(g.key);
     wrap.appendChild(btn);
   });
 }
+// Repaint the chips in place. Rebuilding them here would detach the chip that
+// was just clicked, and the outside-click handler would then read that
+// detached node as a click outside the menu and close it mid-selection.
+function syncIntervalChips(){
+  document.querySelectorAll('#intChips .int-chip').forEach(chip=>{
+    chip.classList.toggle('active', !!intervalVis[chip.dataset.key]);
+  });
+}
 function selectInterval(key){
-  Object.keys(intervalVis).forEach(k=>intervalVis[k]=(k===key));
-  renderIntervalChips();
+  intervalVis[key]=!intervalVis[key];
+  syncIntervalChips();
   updateIntervalBtnState();
   draw();
-  document.getElementById('intervalMenu').classList.remove('open');
 }
 function clearAllIntervals(){
   Object.keys(intervalVis).forEach(k=>intervalVis[k]=false);
-  renderIntervalChips();
+  syncIntervalChips();
   updateIntervalBtnState();
   draw();
   document.getElementById('intervalMenu').classList.remove('open');
 }
 function updateIntervalBtnState(){
   const btn=document.getElementById('intervalBtn');
-  const activeKey=Object.keys(intervalVis).find(k=>intervalVis[k]);
-  if(activeKey){
-    const meta=INTERVAL_META[activeKey];
-    btn.classList.add('active');
+  const active=Object.keys(intervalVis).filter(k=>intervalVis[k]);
+  btn.classList.toggle('active', active.length>0);
+  if(active.length===1){
+    const meta=INTERVAL_META[active[0]];
     btn.textContent=`${INTERVAL_CAT_LABEL[meta.cat]} ${meta.label}`;
   } else {
-    btn.classList.remove('active');
-    btn.textContent='Layers';
+    btn.textContent = active.length ? `Layers ${active.length}` : 'Layers';
   }
 }
 // Close a dropdown menu when clicking outside it and its toggle button
@@ -1593,6 +1616,7 @@ document.getElementById('voicing').addEventListener('change',()=>{if(!chordClear
 // chord logic (slash options, voicing rebuild, chord display) is untouched.
 const WHEEL_ITEM_H = 34;
 let pendingRoot = null, pendingType = null, pendingVoicing = 0;
+let chordSnapshot = null; // chord as it was when the picker opened, for Cancel
 
 function buildWheel(trackId, options, selectedValue){
   const track=document.getElementById(trackId);
@@ -1654,6 +1678,8 @@ function onWheelSettle(wheelId){
   } else {
     pendingVoicing=+value;
   }
+  // live preview on the fretboard while the dials move
+  if(document.getElementById('chordPickerOverlay').classList.contains('open')) commitChordSelection();
 }
 
 function setupWheelDrag(wheelId){
@@ -1682,32 +1708,74 @@ function setupWheelDrag(wheelId){
 }
 ['wheelRoot','wheelType','wheelVoicing'].forEach(setupWheelDrag);
 
+// Push the wheels' current selection through the hidden selects, which redraws
+// the fretboard. Called on every wheel settle so the chord previews live.
+function commitChordSelection(){
+  const cr=document.getElementById('cr'), ct=document.getElementById('ct'), voicing=document.getElementById('voicing');
+  cr.value=pendingRoot; cr.dispatchEvent(new Event('change'));
+  ct.value=pendingType; ct.dispatchEvent(new Event('change'));
+  voicing.value=String(pendingVoicing); voicing.dispatchEvent(new Event('change'));
+}
+
+// Left edge aligned with the Chord button; top just below the fretboard, and
+// never below it — if the sheet won't fit, it moves up rather than down. The
+// sheet narrows toward the space right of the button so it can actually align
+// on a phone, and only shifts left once it hits its minimum width.
+function positionChordSheet(){
+  const sheet=document.querySelector('.picker-sheet');
+  const b=document.getElementById('chordNameDisplay').getBoundingClientRect();
+  const fbBottom=document.getElementById('cv').getBoundingClientRect().bottom;
+  const M=6;
+  const width=Math.max(186, Math.min(300, window.innerWidth-b.left-M));
+  sheet.style.width=width+'px';
+  const left=Math.min(b.left, window.innerWidth-width-M);
+  const top=Math.min(fbBottom+M, window.innerHeight-sheet.offsetHeight-M);
+  sheet.style.left=Math.max(M,left)+'px';
+  sheet.style.top=Math.max(M,top)+'px';
+}
+
 function openChordPicker(){
   const cr=document.getElementById('cr'), ct=document.getElementById('ct'), voicing=document.getElementById('voicing');
   pendingRoot=cr.value; pendingType=ct.value; pendingVoicing=+voicing.value||0;
+  // remembered so Cancel can undo the live preview
+  chordSnapshot={root:cr.value, type:ct.value, voicing:pendingVoicing, cleared:chordCleared};
   buildWheel('wheelRootTrack', [...cr.options].map(o=>({value:o.value,label:o.textContent})), pendingRoot);
   rebuildTypeWheel(pendingRoot, pendingType);
   rebuildVoicingWheel(pendingRoot, pendingType, pendingVoicing);
   document.getElementById('chordPickerOverlay').classList.add('open');
+  positionChordSheet();
 }
 
 function closeChordPicker(){
   document.getElementById('chordPickerOverlay').classList.remove('open');
 }
 
+// Done (and tapping the backdrop) keeps what's previewed on the fretboard.
 function applyChordPicker(){
   ['wheelRoot','wheelType','wheelVoicing'].forEach(id=>{
     clearTimeout(document.getElementById(id)._settleTimer);
     onWheelSettle(id);
   });
-  const cr=document.getElementById('cr'), ct=document.getElementById('ct'), voicing=document.getElementById('voicing');
-  cr.value=pendingRoot; cr.dispatchEvent(new Event('change'));
-  ct.value=pendingType; ct.dispatchEvent(new Event('change'));
-  voicing.value=String(pendingVoicing); voicing.dispatchEvent(new Event('change'));
+  commitChordSelection();
   closeChordPicker();
 }
 
-window.addEventListener('resize',draw);
+function cancelChordPicker(){
+  if(chordSnapshot){
+    pendingRoot=chordSnapshot.root;
+    pendingType=chordSnapshot.type;
+    pendingVoicing=chordSnapshot.voicing;
+    commitChordSelection();
+    if(chordSnapshot.cleared) clearChord();
+  }
+  closeChordPicker();
+}
+
+window.addEventListener('resize',()=>{
+  draw();
+  if(document.getElementById('chordPickerOverlay').classList.contains('open')) positionChordSheet();
+  if(document.getElementById('intervalMenu').classList.contains('open')) positionIntervalMenu();
+});
 // ── Capo drag interaction ──
 (function setupCapoDrag(){
   const cv=document.getElementById('cv');
