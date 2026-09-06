@@ -25,9 +25,6 @@ html,body{width:100%;height:100%;background:#1a1a1a;color:#eee;font-family:-appl
 select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;padding:4px 6px;font-size:13px;height:32px}
 
 /* Shape toggles */
-.togs{display:flex;gap:4px;align-items:center}
-.tog{padding:5px 10px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;border:2px solid;border-radius:5px;user-select:none;min-width:44px}
-.tog.off{opacity:.2}
 .tog-all{padding:5px 8px;cursor:pointer;font-size:11px;font-weight:600;border:1.5px solid #555;border-radius:5px;background:#2a2a2a;color:#aaa;white-space:nowrap;height:32px}
 .tog-all:hover{border-color:#888;color:#eee}
 .interval-dd-btn{padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;border:1.5px solid #556;border-radius:5px;background:#2a2a3e;color:#aac;height:38px;white-space:nowrap}
@@ -119,9 +116,9 @@ canvas{display:block;width:100%;height:auto}
     </div>
     <div style="display:flex;gap:4px;align-items:flex-end">
       <button class="tog-majmin" id="togMajMin" onclick="toggleMajMin()">Major</button>
-      <div class="togs" id="togs"></div>
+      <button class="tog-all" id="togAll" onclick="toggleAll()">All Off</button>
       <button class="tog-all" id="togScale" onclick="toggleScale()" style="border-color:#666;color:#ccc">Scale</button>
-      <button class="tog-all" id="togAll" onclick="toggleAll()">All On</button>
+      <button class="tog-all" id="togNumbers" onclick="toggleNumbers()" style="border-color:#666;color:#ccc">Numbers</button>
     </div>
 
   </div>
@@ -932,7 +929,7 @@ function draw(){
     } else {
       ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=1; ctx.stroke();
     }
-    const nm=nn(note,useFlats);
+    const nm=showNumbers?degreeLabel(interval):nn(note,useFlats);
     ctx.fillStyle=is5th?'#3a2f00':((isRoot||is3rd)?'white':SDARK[sh]);
     ctx.font=`bold ${nm.length>1?Math.max(6,DR-3):Math.max(7,DR-1)}px sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -965,13 +962,13 @@ function draw(){
             const note=(SOPEN[si]+absFret+1200)%12;
             const interval=(note-effectiveR+1200)%12;
             if(!MAJOR_SCALE.includes(interval)) continue;
-            scaleNoteMap.set(k,{si,vf});
+            scaleNoteMap.set(k,{si,vf,interval});
           }
         }
       });
     });
     const SDR=Math.max(Math.floor(DR*1.1),8); // twice as large
-    scaleNoteMap.forEach(({si,vf})=>{
+    scaleNoteMap.forEach(({si,vf,interval})=>{
       const row=strRow(si);
       const cx=dotX(vf), cy=dotY(row);
       ctx.beginPath(); ctx.arc(cx,cy,SDR,0,Math.PI*2);
@@ -980,6 +977,13 @@ function draw(){
       ctx.strokeStyle='rgba(180,180,180,0.5)';
       ctx.lineWidth=1;
       ctx.stroke();
+      if(showNumbers){
+        const lbl=degreeLabel(interval);
+        ctx.fillStyle='#ddd';
+        ctx.font=`bold ${lbl.length>1?Math.max(7,SDR-3):Math.max(8,SDR-1)}px sans-serif`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(lbl,cx,cy+.5);
+      }
     });
   }
 
@@ -1017,53 +1021,15 @@ function draw(){
         ctx.fill();
         ctx.strokeStyle='rgba(0,0,0,.4)';
         ctx.lineWidth=1; ctx.stroke();
-        // Note name inside
+        // Note name (or scale degree) inside
         const note=(SOPEN[si]+vf+1200)%12; // sounding pitch (includes capo)
+        const lbl=showNumbers?degreeLabel((note-effectiveR+1200)%12):nn(note,useFlats);
         ctx.fillStyle='#222';
         ctx.font=`bold ${CDR>7?8:7}px sans-serif`;
         ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(nn(note,useFlats),cx,cy+.5);
+        ctx.fillText(lbl,cx,cy+.5);
       });
     }
-  }
-
-  // ── Scale note overlay ──────────────────────────────────────────────────
-  if(showScale){
-    const MAJOR_SCALE = isMajor ? [0,2,4,5,7,9,11] : [0,2,3,5,7,8,10];
-    const scaleNoteMap=new Map();
-    SHAPE_ORDER.forEach(sh=>{
-      if(!vis[sh]) return;
-      instances[sh].forEach(shift=>{
-        const def=C_SHAPES[sh];
-        const instVfrets=def.notes.map(([,f])=>f+shift).filter(v=>v>=0&&v<=SHOW);
-        if(!instVfrets.length) return;
-        const minVf=Math.min(...instVfrets);
-        const maxVf=Math.max(...instVfrets);
-        for(let si=0;si<6;si++){
-          for(let vf=minVf;vf<=maxVf;vf++){
-            const k=`${si},${vf}`;
-            if(noteMap.has(k)) continue;
-            if(scaleNoteMap.has(k)) continue;
-            const absFret=vf;
-            const note=(SOPEN[si]+absFret+1200)%12;
-            const interval=(note-effectiveR+1200)%12;
-            if(!MAJOR_SCALE.includes(interval)) continue;
-            scaleNoteMap.set(k,{si,vf});
-          }
-        }
-      });
-    });
-    const SDR=Math.max(Math.floor(DR*1.1),8);
-    scaleNoteMap.forEach(({si,vf})=>{
-      const row=strRow(si);
-      const cx=dotX(vf), cy=dotY(row);
-      ctx.beginPath(); ctx.arc(cx,cy,SDR,0,Math.PI*2);
-      ctx.fillStyle='rgba(0,0,0,0.75)';
-      ctx.fill();
-      ctx.strokeStyle='rgba(180,180,180,0.5)';
-      ctx.lineWidth=1;
-      ctx.stroke();
-    });
   }
 
   // ── Interval overlays (triads, thirds, sixths) ──────────────────────────
@@ -1327,7 +1293,6 @@ function toggleMajMin(){
     btn.style.color       = '#9090f0';
   }
   syncChordToKey();
-  renderToggles();
   draw();
 }
 
@@ -1360,6 +1325,20 @@ function toggleScale(){
   draw();
 }
 
+// ── Scale-degree numbers (in place of note letter names) ───────────────────
+let showNumbers = false;
+const DEGREE_LABELS=['1','♭2','2','♭3','3','4','♭5','5','♭6','6','♭7','7'];
+function degreeLabel(interval){ return DEGREE_LABELS[((interval%12)+12)%12]; }
+
+function toggleNumbers(){
+  showNumbers = !showNumbers;
+  const btn = document.getElementById('togNumbers');
+  btn.style.borderColor = showNumbers ? '#aaa' : '#666';
+  btn.style.color = showNumbers ? '#eee' : '#ccc';
+  btn.style.background = showNumbers ? '#3a3a3a' : '#2a2a2a';
+  draw();
+}
+
 function openScreenSettings(){
   // Tries to trigger a Shortcut named "Screen On" which opens Display settings
   window.location.href = "shortcuts://run-shortcut?name=Screen%20On";
@@ -1368,8 +1347,7 @@ function openScreenSettings(){
 function toggleAll(){
   const allOn = Object.values(vis).every(v=>v);
   SHAPE_ORDER.forEach(s=>{ vis[s] = !allOn; });
-  document.getElementById('togAll').textContent = allOn ? 'All On' : 'All Off';
-  renderToggles();
+  syncAllToggleBtn();
   draw();
 }
 
@@ -1386,21 +1364,7 @@ function clearChord(){
   draw();
 }
 
-function renderToggles(){
-  const el=document.getElementById('togs');
-  el.innerHTML='';
-  SHAPE_ORDER.forEach(s=>{
-    const d=document.createElement('div');
-    d.className='tog'+(vis[s]?'':' off');
-    d.style.background=vis[s]?SCOLORS[s]+'55':'transparent';
-    d.style.borderColor=SDARK[s];
-    d.style.color=SDARK[s];
-    d.textContent=shapeLabel(s,isMajor);
-    d.addEventListener('click',()=>{vis[s]=!vis[s];renderToggles();draw()});
-    el.appendChild(d);
-  });
-  // Sync all-toggle label
-  const allOn = Object.values(vis).every(v=>v);
+function syncAllToggleBtn(){
   const allOff = Object.values(vis).every(v=>!v);
   const btn = document.getElementById('togAll');
   if(btn) btn.textContent = allOff ? 'All On' : 'All Off';
@@ -1493,7 +1457,7 @@ function updateSlashOptions(){
   }
 }
 
-function all(){renderToggles();draw();}
+function all(){syncAllToggleBtn();draw();}
 document.getElementById('ks').addEventListener('change',()=>{syncChordToKey();all();})
 document.getElementById('cap').addEventListener('change',()=>{capoPos=+document.getElementById('cap').value;draw();});
 document.getElementById('cap').addEventListener('change',all);
