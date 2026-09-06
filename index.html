@@ -719,7 +719,7 @@ function draw(){
   const topPad=shLblH+fnH;
   const totalH=fbH+shLblH+fnH+2;
   const H=totalH;
-  const DR=Math.min(Math.floor(fw*.38),Math.floor(rowH*.38),10);
+  const DR=Math.min(Math.floor(fw*.38),Math.floor(rowH*.38),13);
   // Store geometry for pointer/drag handlers
   window._fbGeo = {lW, fw, topPad, fbH, SHOW, W};
 
@@ -931,7 +931,7 @@ function draw(){
     }
     const nm=showNumbers?degreeLabel(interval):nn(note,useFlats);
     ctx.fillStyle=is5th?'#3a2f00':((isRoot||is3rd)?'white':SDARK[sh]);
-    ctx.font=`bold ${nm.length>1?Math.max(6,DR-3):Math.max(7,DR-1)}px sans-serif`;
+    ctx.font=`bold ${nm.length>1?Math.max(9,DR-1):Math.max(11,DR+2)}px sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(nm,cx,cy+.5);
   });
@@ -980,7 +980,7 @@ function draw(){
       if(showNumbers){
         const lbl=degreeLabel(interval);
         ctx.fillStyle='#ddd';
-        ctx.font=`bold ${lbl.length>1?Math.max(7,SDR-3):Math.max(8,SDR-1)}px sans-serif`;
+        ctx.font=`bold ${lbl.length>1?Math.max(9,SDR-2):Math.max(11,SDR+1)}px sans-serif`;
         ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText(lbl,cx,cy+.5);
       }
@@ -1025,7 +1025,7 @@ function draw(){
         const note=(SOPEN[si]+vf+1200)%12; // sounding pitch (includes capo)
         const lbl=showNumbers?degreeLabel((note-effectiveR+1200)%12):nn(note,useFlats);
         ctx.fillStyle='#222';
-        ctx.font=`bold ${CDR>7?8:7}px sans-serif`;
+        ctx.font=`bold ${lbl.length>1?Math.max(8,CDR-1):Math.max(10,CDR+1)}px sans-serif`;
         ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText(lbl,cx,cy+.5);
       });
