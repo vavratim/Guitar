@@ -19,8 +19,9 @@ html,body{width:100%;height:100%;background:#1a1a1a;color:#eee;font-family:-appl
 .app{display:flex;flex-direction:column;height:100vh;padding:6px}
 
 /* Controls row */
-.ctrl-row{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;margin-bottom:5px}
+.ctrl-row{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;margin-bottom:5px;position:relative}
 .ctrl{display:flex;flex-direction:column;gap:2px}
+.tog-group{display:flex;gap:4px;align-items:flex-end}
 .clbl{font-size:10px;color:#888;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
 select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;padding:4px 6px;font-size:13px;height:32px}
 
@@ -45,8 +46,6 @@ select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;pad
 .tog-majmin:hover{filter:brightness(1.15)}
 
 /* Chord row */
-.chord-row{display:flex;gap:5px;align-items:flex-end;flex-wrap:wrap;margin-bottom:5px;padding:5px 0 5px;border-top:1px solid #333}
-.chord-lbl{font-size:10px;color:#888;font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 .chord-picker-btn{padding:5px 12px;cursor:pointer;font-size:14px;font-weight:700;border:1.5px solid #556;border-radius:5px;background:#2a2a3e;color:#f0c050;height:32px;min-width:110px;text-align:left}
 .chord-picker-btn:hover{border-color:#88a}
 .btn-clear{padding:5px 10px;cursor:pointer;font-size:12px;font-weight:600;border:1.5px solid #555;border-radius:5px;background:#2a2a2a;color:#aaa;align-self:flex-end;height:32px}
@@ -74,6 +73,20 @@ select{background:#2a2a2a;color:#eee;border:1px solid #444;border-radius:5px;pad
 .settings-menu.open{display:flex;flex-direction:column;gap:10px}
 .settings-menu-item{display:flex;flex-direction:column;gap:2px}
 
+/* Phone: shrink the control row so it stays on one line */
+@media (max-width:480px){
+  /* right padding keeps the row clear of the fixed menu button */
+  .ctrl-row{gap:4px;padding-right:32px}
+  .tog-group{gap:3px}
+  .ctrl-row .clbl{display:none}
+  select{font-size:11px;padding:3px 3px;height:28px}
+  .tog-majmin{font-size:9.5px;padding:4px 5px;height:28px;border-width:1.5px}
+  .tog-all{font-size:9.5px;padding:4px 5px;height:28px}
+  .chord-picker-btn{font-size:11.5px;padding:4px 6px;height:28px;min-width:0}
+  .btn-clear{font-size:12px;padding:4px 7px;height:28px}
+  .interval-dd-btn{font-size:9.5px;padding:4px 5px;height:28px}
+}
+
 /* Canvas */
 .fb-wrap{overflow:auto;position:relative}
 canvas{display:block;width:100%;height:auto}
@@ -86,83 +99,70 @@ canvas{display:block;width:100%;height:auto}
 </head>
 <body>
 <div class="app">
-    <button class="btn-screen" id="menuBtn" onclick="toggleSettingsMenu()" title="More options" style="position:fixed;top:22px;right:40px;z-index:999;padding:3px 7px;font-size:13px;height:26px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg">
+    <button class="btn-screen" id="menuBtn" onclick="toggleSettingsMenu()" title="More options" style="position:fixed;top:22px;right:6px;z-index:999;padding:3px 7px;font-size:13px;height:26px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg">
   <line x1="4" y1="7" x2="20" y2="7"/>
   <line x1="4" y1="12" x2="20" y2="12"/>
   <line x1="4" y1="17" x2="20" y2="17"/>
 </svg></button>
     <div id="settingsMenu" class="settings-menu">
       <div class="settings-menu-item">
+        <span class="clbl">Capo</span>
+        <select id="cap">
+          <option value="0">None</option>
+          <option value="1">1</option><option value="2">2</option>
+          <option value="3">3</option><option value="4">4</option>
+          <option value="5">5</option><option value="6">6</option>
+          <option value="7">7</option><option value="8">8</option>
+          <option value="9">9</option><option value="10">10</option>
+          <option value="11">11</option><option value="12">12</option>
+        </select>
+      </div>
+      <div class="settings-menu-item">
+        <span class="clbl">Frets</span>
+        <select id="numFrets" onchange="draw()">
+          <option value="12">12</option>
+          <option value="13">13</option>
+          <option value="15" selected>15</option>
+          <option value="17">17</option>
+        </select>
+      </div>
+      <div class="settings-menu-item">
         <button class="tog-all" id="togAll" onclick="toggleAll()" style="width:100%">All Off</button>
       </div>
+      <div class="settings-menu-item">
+        <button class="tog-all" onclick="openScreenSettings()" style="width:100%">Screen on</button>
+      </div>
     </div>
-    <button class="btn-screen" onclick="openScreenSettings()" title="Open Display Settings" style="position:fixed;top:22px;right:6px;z-index:999;padding:3px 7px;font-size:13px;height:26px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="12" cy="12" r="4"/>
-  <line x1="12" y1="2" x2="12" y2="5"/>
-  <line x1="12" y1="19" x2="12" y2="22"/>
-  <line x1="2" y1="12" x2="5" y2="12"/>
-  <line x1="19" y1="12" x2="22" y2="12"/>
-  <line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/>
-  <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
-  <line x1="19.78" y1="4.22" x2="17.66" y2="6.34"/>
-  <line x1="6.34" y1="17.66" x2="4.22" y2="19.78"/>
-</svg></button>
 
-  <!-- CAGED Key + Capo + Toggles -->
+  <!-- Key, display toggles, chord picker and interval layers — one row -->
   <div class="ctrl-row">
     <div class="ctrl">
       <span class="clbl">Key</span>
       <select id="ks">
-        <option value="C">C · 0 · Am</option>
-        <option value="G">G · 1♯ · Em</option>
-        <option value="D">D · 2♯ · Bm</option>
-        <option value="A">A · 3♯ · F♯m</option>
-        <option value="E">E · 4♯ · C♯m</option>
-        <option value="B">B · 5♯ · G♯m</option>
-        <option value="F#">F♯ · 6♯ · D♯m</option>
-        <option value="F">F · 1♭ · Dm</option>
-        <option value="Bb">B♭ · 2♭ · Gm</option>
-        <option value="Eb">E♭ · 3♭ · Cm</option>
-        <option value="Ab">A♭ · 4♭ · Fm</option>
-        <option value="Db">D♭ · 5♭ · B♭m</option>
+        <option value="C">C</option>
+        <option value="G">G</option>
+        <option value="D">D</option>
+        <option value="A">A</option>
+        <option value="E">E</option>
+        <option value="B">B</option>
+        <option value="F#">F♯</option>
+        <option value="F">F</option>
+        <option value="Bb">B♭</option>
+        <option value="Eb">E♭</option>
+        <option value="Ab">A♭</option>
+        <option value="Db">D♭</option>
       </select>
     </div>
-    <div class="ctrl">
-      <span class="clbl">Capo</span>
-      <select id="cap">
-        <option value="0">None</option>
-        <option value="1">1</option><option value="2">2</option>
-        <option value="3">3</option><option value="4">4</option>
-        <option value="5">5</option><option value="6">6</option>
-        <option value="7">7</option><option value="8">8</option>
-        <option value="9">9</option><option value="10">10</option>
-        <option value="11">11</option><option value="12">12</option>
-      </select>
-    </div>
-    <div class="ctrl">
-      <span class="clbl">Frets</span>
-      <select id="numFrets" onchange="draw()">
-        <option value="12">12</option>
-        <option value="13">13</option>
-        <option value="15" selected>15</option>
-        <option value="17">17</option>
-      </select>
-    </div>
-    <div style="display:flex;gap:4px;align-items:flex-end">
+    <div class="tog-group">
       <button class="tog-majmin" id="togMajMin" onclick="toggleMajMin()">Major</button>
       <button class="tog-all" id="togScale" onclick="toggleScale()" style="border-color:#666;color:#ccc">Scale</button>
       <button class="tog-all" id="togNumbers" onclick="toggleNumbers()" style="border-color:#666;color:#ccc">Numbers</button>
     </div>
-
-  </div>
-
-  <!-- Chord lookup -->
-  <div class="chord-row">
     <div class="ctrl">
-      <span class="chord-lbl">Chord</span>
-      <button id="chordNameDisplay" class="chord-picker-btn" onclick="openChordPicker()">Select chord ▾</button>
+      <span class="clbl">Chord</span>
+      <button id="chordNameDisplay" class="chord-picker-btn" onclick="openChordPicker()">Chord ▾</button>
     </div>
-    <button class="btn-clear" onclick="clearChord()">✕ Clear</button>
+    <button class="btn-clear" onclick="clearChord()" title="Clear chord">✕</button>
 
     <!-- Hidden model selects: the app's chord logic reads/writes these; the
          chord picker sheet below is just an alternate UI that drives them. -->
@@ -219,8 +219,8 @@ canvas{display:block;width:100%;height:auto}
       <option value="0">1st</option>
     </select>
 
-    <div class="ctrl" style="position:relative">
-      <span class="chord-lbl">Intervals</span>
+    <div class="ctrl">
+      <span class="clbl">Intervals</span>
       <button id="intervalBtn" class="interval-dd-btn" onclick="toggleIntervalMenu()">Layers ▾</button>
       <div id="intervalMenu" class="interval-menu">
         <div class="int-tabs">
@@ -1228,7 +1228,7 @@ function draw(){
 function updateChordDisplay(key, frets){
   const el=document.getElementById('chordNameDisplay');
   if(chordCleared){
-    el.textContent='Select chord ▾';
+    el.textContent='Chord ▾';
     el.style.color='#888';
     return;
   }
@@ -1302,7 +1302,7 @@ const INTERVAL_GROUPS = {
     {key:'sixths_2_0', label:'D-E'},
   ],
 };
-const INTERVAL_CAT_LABEL = {triads:'Triad', thirds:'3rd', sixths:'6th'};
+const INTERVAL_CAT_LABEL = {triads:'Tri', thirds:'3rd', sixths:'6th'};
 const INTERVAL_META = {};
 Object.keys(INTERVAL_GROUPS).forEach(cat=>{
   INTERVAL_GROUPS[cat].forEach(g=>{ INTERVAL_META[g.key]={cat, label:g.label}; });
